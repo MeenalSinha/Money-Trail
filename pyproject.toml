@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "money-trail"
+version = "0.3.0"
+description = "Money Trail: graph-backed financial investigation agent (Phase 1 foundation)"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "falkordb==1.8.0",
+    "python-dotenv>=1.0,<2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+]
+
+[project.scripts]
+money-trail = "money_trail.cli:main"
+money-trail-check = "money_trail.cli:check_main"
+money-trail-init = "money_trail.cli:init_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: requires a real FalkorDB instance (see README)",
+]

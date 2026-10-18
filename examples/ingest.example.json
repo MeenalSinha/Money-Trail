@@ -1,0 +1,33 @@
+{
+  "dataset": {
+    "namespace": "example-bank-export",
+    "source": {"name": "example export (illustrative values)", "version": "v1",
+               "description": "Shows a differently shaped CSV: decimal amounts, local timestamps, fixed currency."}
+  },
+  "format": "csv",
+  "csv": {"delimiter": ";", "encoding": "utf-8"},
+  "files": {
+    "accounts": {"path": "example/accounts.csv", "columns": {"account_id": "ACCT_NO"}},
+    "transactions": {
+      "path": "example/transfers.csv",
+      "columns": {"transaction_id": "REF", "source_account": "DEBIT_ACCT", "destination_account": "CREDIT_ACCT",
+                  "amount": "AMOUNT", "timestamp": "BOOKED", "channel": "CHANNEL"}
+    }
+  },
+  "normalization": {
+    "timestamp": {"format": "strptime", "pattern": "%d/%m/%Y %H:%M:%S", "timezone": "+05:30"},
+    "amount": {"unit": "major", "currencies": {"INR": 2}, "fixed_currency": "INR"}
+  },
+  "ingestion": {
+    "batch_size": 500,
+    "invalid_policy": "quarantine",
+    "source_conflict_policy": "reject",
+    "graph_conflict_policy": "reject",
+    "accounts_policy": "require_file",
+    "max_records_per_file": null,
+    "max_file_bytes": null,
+    "max_reported_errors": 50
+  },
+  "output": {"quarantine_dir": "../ingest-output/example-bank-export/quarantine",
+             "report_dir": "../ingest-output/example-bank-export/reports"}
+}

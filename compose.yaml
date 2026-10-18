@@ -1,0 +1,28 @@
+# Local FalkorDB for Money Trail (Phase 1). Only FalkorDB is started.
+#
+# Required in .env (see .env.example): FALKORDB_PASSWORD, FALKORDB_PORT.
+# Compose refuses to start if the password is unset. Data lives in a named
+# volume and is NOT removed by `docker compose down` (only by `down -v`).
+services:
+  falkordb:
+    # Pinned. Override the tag with FALKORDB_IMAGE_TAG; do not use "latest".
+    image: falkordb/falkordb-server:${FALKORDB_IMAGE_TAG:-v4.18.2}
+    container_name: money-trail-falkordb
+    restart: unless-stopped
+    environment:
+      - REDIS_ARGS=--requirepass ${FALKORDB_PASSWORD:?set FALKORDB_PASSWORD in .env} --appendonly yes
+      - REDISCLI_AUTH=${FALKORDB_PASSWORD}
+    ports:
+      # Bound to loopback only. The application reads the same FALKORDB_PORT.
+      - "127.0.0.1:${FALKORDB_PORT:?set FALKORDB_PORT in .env}:6379"
+    volumes:
+      - falkordb_data:/var/lib/falkordb/data
+    healthcheck:
+      # Process-level readiness only. Application-level readiness is `money-trail-check`.
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  falkordb_data:

@@ -1,0 +1,62 @@
+{
+  "rule_set": {
+    "name": "demo-rules",
+    "version": "1"
+  },
+  "limits": {
+    "max_candidate_paths": 20000,
+    "max_detections_per_detector": 500,
+    "max_anchor_transactions": 200,
+    "max_evidence_transactions": 100,
+    "query_timeout_ms": 20000
+  },
+  "detectors": {
+    "circular": {
+      "enabled": true,
+      "min_hops": 3,
+      "max_hops": 5,
+      "max_gap_ms": 21600000,
+      "max_total_window_ms": 86400000,
+      "allow_repeated_accounts": false,
+      "amount_retention": {
+        "min_bps": 9000,
+        "max_bps": 10000
+      }
+    },
+    "pass_through": {
+      "enabled": true,
+      "min_hops": 2,
+      "max_hops": 4,
+      "max_gap_ms": 7200000,
+      "max_total_window_ms": 28800000,
+      "allow_repeated_accounts": false,
+      "retention": {
+        "min_bps": 9000,
+        "max_bps": 10000
+      }
+    },
+    "fan_in": {
+      "enabled": true,
+      "min_distinct_counterparties": 5,
+      "min_transactions": 5,
+      "window_ms": 86400000,
+      "min_total_amount": null
+    },
+    "fan_out": {
+      "enabled": true,
+      "min_distinct_counterparties": 5,
+      "min_transactions": 5,
+      "window_ms": 86400000,
+      "min_total_amount": null
+    }
+  },
+  "persistence": {
+    "hypothesis_findings": true
+  },
+  "evaluation": {
+    "match": {
+      "min_gt_coverage_percent": 100,
+      "min_detection_purity_percent": 100
+    }
+  }
+}

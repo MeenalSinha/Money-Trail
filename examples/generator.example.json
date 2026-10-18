@@ -1,0 +1,32 @@
+{
+  "namespace": "synthetic-demo",
+  "seed": 20261015,
+  "output_dir": "../generated-datasets",
+  "ingest_output_dir": "../ingest-output",
+  "currency": {"code": "USD", "exponent": 2},
+  "amount_format": "major",
+  "time_window": {"start": "2026-01-01T00:00:00Z", "days": 30},
+  "ordinary_activity": {
+    "accounts": 60,
+    "transactions": 300,
+    "amount_minor": {"min": 500, "max": 250000},
+    "channels": ["transfer", "card", "wire"]
+  },
+  "id_prefixes": {"account": "ACC", "transaction": "TXN", "alert": "ALT"},
+  "patterns": [
+    {"type": "circular", "count": 2, "cycle_length": {"min": 3, "max": 5},
+     "amount_minor": {"min": 100000, "max": 900000}, "retention_bps": 9900,
+     "delay_seconds": {"min": 60, "max": 7200}, "shared_account_fraction_percent": 20},
+    {"type": "pass_through", "count": 2, "hops": {"min": 2, "max": 4},
+     "amount_minor": {"min": 100000, "max": 900000}, "retention_bps": 9800,
+     "delay_seconds": {"min": 30, "max": 3600}, "shared_account_fraction_percent": 20},
+    {"type": "fan_in", "count": 2, "sources": {"min": 5, "max": 8},
+     "amount_minor": {"min": 20000, "max": 90000},
+     "delay_seconds": {"min": 0, "max": 86400}, "shared_account_fraction_percent": 20},
+    {"type": "fan_out", "count": 2, "recipients": {"min": 5, "max": 8},
+     "amount_minor": {"min": 20000, "max": 90000},
+     "delay_seconds": {"min": 0, "max": 86400}, "shared_account_fraction_percent": 20}
+  ],
+  "seed_alerts": {"on_pattern_transactions": 6, "on_ordinary_transactions": 6,
+                  "alert_type": "seed_signal", "severity": "unspecified"}
+}
