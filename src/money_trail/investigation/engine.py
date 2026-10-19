@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from redis import exceptions as redis_exc
 
@@ -112,7 +112,26 @@ class InvestigationEngine:
                      anchor_truncated=truncated)
 
     # ---- run -------------------------------------------------------------------------
-    def investigate(self, req: InvestigationRequest, *, persist: bool = False) -> InvestigationResult:
+    def _select_detectors(self, detectors: Optional[Sequence[str]], persist: bool) -> Tuple[str, ...]:
+        """All enabled detectors by default; an explicit subset must name enabled detectors (no free names)."""
+        enabled = self.config.enabled_names()
+        if detectors is None:
+            return enabled
+        chosen = tuple(dict.fromkeys(detectors))
+        if not chosen:
+            raise ValidationError("detectors must name at least one detector when given.")
+        bad = [n for n in chosen if n not in enabled]
+        if bad:
+            raise ValidationError(f"unsupported or disabled detector(s): {', '.join(map(str, bad))}. "
+                                  f"Enabled: {', '.join(enabled)}.")
+        if persist and set(chosen) != set(enabled):
+            raise ValidationError("persisting requires every enabled detector to run: the investigation identity "
+                                  "covers the whole enabled rule set.")
+        return tuple(n for n in enabled if n in chosen)
+
+    def investigate(self, req: InvestigationRequest, *, persist: bool = False,
+                    detectors: Optional[Sequence[str]] = None) -> InvestigationResult:
+        names = self._select_detectors(detectors, persist)
         if persist and req.anchor_type != "transaction":
             raise ValidationError("Only transaction-anchored investigations can be persisted: the schema links an "
                                   "Investigation to its starting Transaction, and none is invented for accounts or datasets.")
@@ -135,7 +154,7 @@ class InvestigationEngine:
             reader = b.GraphReader(self.conn, self.config.limits.query_timeout_ms)
             collected: Dict[str, Detection] = {}
             truncated_any = scope.anchor_truncated
-            for name in self.config.enabled_names():
+            for name in names:
                 det = DETECTORS[name](self.config.settings[name], self.config.limits, reader,
                                       self.config.rule_version(name), self.clock)
                 before = reader.snapshot()

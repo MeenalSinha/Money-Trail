@@ -54,3 +54,22 @@ def detection_dict(**over):
     for k, v in over.items():
         cfg[k] = v
     return cfg
+
+
+def agent_dict(**over):
+    """A valid agent configuration for tests. Nothing here is a credential."""
+    cfg = {
+        "provider": {"name": "anthropic", "model": "test-model-id", "api_key_env": "TEST_AGENT_KEY", "base_url": None,
+                     "request_timeout_seconds": 30, "max_retries": 2, "retry_initial_backoff_seconds": 1,
+                     "retry_max_backoff_seconds": 8, "max_output_tokens": 2048},
+        "agent": {"prompt_version": "v1", "max_steps": 8, "max_tool_calls": 10, "max_duration_seconds": 60,
+                  "max_invalid_tool_calls": 3, "max_output_recoveries": 1, "max_tool_result_chars": 60000},
+        "tool_limits": {"max_results": 50, "max_hops": 4, "max_paths": 100, "max_gap_ms": None,
+                        "query_timeout_ms": 10000, "max_listed_findings": 20},
+        "grounding": {"forbidden_conclusion_terms": ["fraud", "launder", "criminal", "guilty"],
+                      "hedging_markers": ["not", "may", "might", "could", "warrant", "unconfirmed", "if "],
+                      "max_text_chars": 2000},
+    }
+    for k, v in over.items():
+        cfg[k] = {**cfg[k], **v} if isinstance(v, dict) and isinstance(cfg.get(k), dict) else v
+    return cfg

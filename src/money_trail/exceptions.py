@@ -35,3 +35,15 @@ class SourceFormatError(MoneyTrailError):
 
 class QueryError(MoneyTrailError):
     """An investigation query was given invalid arguments or could not be completed."""
+
+
+class QueryTimeoutError(QueryError):
+    """A read-only query was stopped by the server-side timeout; its results are incomplete."""
+
+
+class AgentError(MoneyTrailError):
+    """Base class for agent-layer errors (Phase 4)."""
+
+
+class AgentConfigError(AgentError, ConfigurationError):
+    """The agent configuration or the provider credential is missing or invalid."""

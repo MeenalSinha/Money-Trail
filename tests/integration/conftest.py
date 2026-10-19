@@ -119,3 +119,80 @@ def counts(ready):
             out[rel] = g.ro_query(f"MATCH ()-[r:{rel}]->() RETURN count(r)").result_set[0][0]
         return out
     return _counts
+
+
+# ---- Phase 4 helpers ---------------------------------------------------------------------------------
+@pytest.fixture
+def det_config():
+    from money_trail.investigation.config import parse_detection_config
+    from support import detection_dict
+    return parse_detection_config(detection_dict())
+
+
+@pytest.fixture
+def make_agent(ready, det_config):
+    """Build an InvestigationAgent over the disposable graph. `provider` is a ScriptedProvider/callable test double."""
+    from money_trail.agent.agent import InvestigationAgent
+    from money_trail.agent.config import parse_agent_config
+    from money_trail.agent.testing import PolicyProvider, ScriptedProvider
+    from support import agent_dict
+
+    def _make(provider, agent_over=None, **kw):
+        if isinstance(provider, list):
+            provider = ScriptedProvider(provider)
+        elif callable(provider) and not hasattr(provider, "complete"):
+            provider = PolicyProvider(provider)
+        cfg = parse_agent_config(agent_dict(**(agent_over or {})))
+        kw.setdefault("sleep", lambda s: None)
+        return InvestigationAgent(ready, det_config, cfg, provider, **kw), provider
+    return _make
+
+
+@pytest.fixture
+def tool_env(ready, det_config):
+    from money_trail.agent.config import parse_agent_config
+    from money_trail.agent.ledger import Ledger
+    from money_trail.agent.tools.handlers import ToolContext
+    from money_trail.agent.tools.registry import build_registry
+    from money_trail.investigation.engine import InvestigationEngine
+    from support import agent_dict
+
+    class Env:
+        def __init__(self, over=None):
+            self.cfg = parse_agent_config(agent_dict(**(over or {})))
+            self.ctx = ToolContext(ready, det_config, self.cfg.tools, InvestigationEngine(ready, det_config))
+            self.registry = build_registry(det_config, self.cfg.tools)
+            self.ledger = Ledger()
+
+        def call(self, name, **args):
+            return self.registry.execute(self.ctx, name, args, self.ledger, self.cfg.loop.max_tool_result_chars)
+    return Env
+
+
+@pytest.fixture
+def spy_graph(monkeypatch):
+    """Intercept every graph call made through a FalkorDBConnection. `conn.graph` builds a NEW Graph object on each access,
+    so patching one instance has no effect; this patches the property on the class. Returns (log, set_hook)."""
+    from money_trail.database import FalkorDBConnection
+    log, hooks = [], []
+    orig = FalkorDBConnection.graph.fget
+
+    class Spy:
+        def __init__(self, g):
+            self._g = g
+
+        def ro_query(self, q, p=None, **kw):
+            log.append(("read", q))
+            for h in hooks:
+                h(q)
+            return self._g.ro_query(q, p, **kw)
+
+        def query(self, q, p=None, **kw):
+            log.append(("WRITE", q))
+            return self._g.query(q, p, **kw)
+
+        def __getattr__(self, n):
+            return getattr(self._g, n)
+
+    monkeypatch.setattr(FalkorDBConnection, "graph", property(lambda self: Spy(orig(self))))
+    return log, hooks.append

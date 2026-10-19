@@ -1,0 +1,304 @@
+{
+  "datasets": {
+    "audit-noisy": {
+      "evidence_grounding_rate": 1.0,
+      "expected_pattern_reported": 1.0,
+      "factual_sentences": 11,
+      "findings_verified_independently": {
+        "total": 21,
+        "verified": 21
+      },
+      "investigation_completion_rate": 0.8571,
+      "latency_ms": {
+        "model_total": 0,
+        "run_max": 46,
+        "run_median": 17,
+        "tool_mean_by_name": {
+          "get_account_activity": 1.8,
+          "get_transaction_context": 1.2,
+          "run_investigation": 9.7,
+          "trace_transaction_network": 32.0
+        },
+        "tool_total": 108
+      },
+      "model_sentences": 11,
+      "model_tool_calls": 13,
+      "n_transactions_in_dataset": 943,
+      "outcome_matches_expectation": 1.0,
+      "per_scenario": [
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "connected-circular",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 20
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "connected-pass_through",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 16
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "connected-fan_in",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 15
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "incomplete",
+          "scenario": "connected-fan_out",
+          "status_ok": false,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 17
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "no_pattern_identified_under_tested_criteria",
+          "outcome_ok": true,
+          "run_status": "incomplete",
+          "scenario": "insufficient-evidence",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation",
+            "trace_transaction_network"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 46
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "not_determined",
+          "outcome_ok": true,
+          "run_status": "anchor_not_found",
+          "scenario": "missing-transaction",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 0
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "unsupported-request",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 17
+        }
+      ],
+      "post_filter_unresolved_ids": [],
+      "provider_usage": {
+        "cost": "not computed",
+        "input_tokens": 650,
+        "output_tokens": 325
+      },
+      "report_schema_valid": true,
+      "scenarios": 7,
+      "tool_execution_success_rate": 1.0,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_call_rate": 0.0,
+      "unsupported_claim_rate": 0.0
+    },
+    "synthetic-demo": {
+      "evidence_grounding_rate": 1.0,
+      "expected_pattern_reported": 1.0,
+      "factual_sentences": 11,
+      "findings_verified_independently": {
+        "total": 19,
+        "verified": 19
+      },
+      "investigation_completion_rate": 0.7143,
+      "latency_ms": {
+        "model_total": 0,
+        "run_max": 31,
+        "run_median": 19,
+        "tool_mean_by_name": {
+          "get_account_activity": 1.9,
+          "get_transaction_context": 1.0,
+          "run_investigation": 10.2,
+          "trace_transaction_network": 17.0
+        },
+        "tool_total": 97
+      },
+      "model_sentences": 11,
+      "model_tool_calls": 14,
+      "n_transactions_in_dataset": 339,
+      "outcome_matches_expectation": 1.0,
+      "per_scenario": [
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "connected-circular",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 20
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "incomplete",
+          "scenario": "connected-pass_through",
+          "status_ok": false,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 16
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "connected-fan_in",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 15
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "incomplete",
+          "scenario": "connected-fan_out",
+          "status_ok": false,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 19
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "no_pattern_identified_under_tested_criteria",
+          "outcome_ok": true,
+          "run_status": "incomplete",
+          "scenario": "insufficient-evidence",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation",
+            "trace_transaction_network"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 31
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "not_determined",
+          "outcome_ok": true,
+          "run_status": "anchor_not_found",
+          "scenario": "missing-transaction",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 0
+        },
+        {
+          "expected_pattern_reported": true,
+          "outcome": "patterns_identified",
+          "outcome_ok": true,
+          "run_status": "completed",
+          "scenario": "unsupported-request",
+          "status_ok": true,
+          "tool_selection_ok": true,
+          "tools_executed": [
+            "get_transaction_context",
+            "get_account_activity",
+            "run_investigation"
+          ],
+          "unnecessary_call_seqs": [],
+          "wall_ms": 22
+        }
+      ],
+      "post_filter_unresolved_ids": [],
+      "provider_usage": {
+        "cost": "not computed",
+        "input_tokens": 680,
+        "output_tokens": 340
+      },
+      "report_schema_valid": true,
+      "scenarios": 7,
+      "tool_execution_success_rate": 1.0,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_call_rate": 0.0,
+      "unsupported_claim_rate": 0.0
+    }
+  },
+  "provider": "SCRIPTED test double (AdaptivePolicy) - validates harness, tools and verification; NOT a measurement of any real model"
+}

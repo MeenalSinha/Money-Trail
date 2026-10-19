@@ -1,0 +1,35 @@
+{
+  "provider": {
+    "name": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "base_url": null,
+    "request_timeout_seconds": 60,
+    "max_retries": 3,
+    "retry_initial_backoff_seconds": 1,
+    "retry_max_backoff_seconds": 20,
+    "max_output_tokens": 4096
+  },
+  "agent": {
+    "prompt_version": "v1",
+    "max_steps": 10,
+    "max_tool_calls": 12,
+    "max_duration_seconds": 180,
+    "max_invalid_tool_calls": 3,
+    "max_output_recoveries": 1,
+    "max_tool_result_chars": 40000
+  },
+  "tool_limits": {
+    "max_results": 50,
+    "max_hops": 4,
+    "max_paths": 200,
+    "max_gap_ms": null,
+    "query_timeout_ms": 10000,
+    "max_listed_findings": 20
+  },
+  "grounding": {
+    "forbidden_conclusion_terms": ["fraud", "launder", "criminal", "illegal", "unlawful", "guilty", "crime", "embezzle", "terroris", "sanctions evasion", "money mule"],
+    "hedging_markers": ["not", "no evidence", "may", "might", "could", "possible", "potential", "warrant", "unconfirmed", "hypothesis", "cannot", "unable", "if ", "whether", "does not establish", "rather than"],
+    "max_text_chars": 2000
+  }
+}

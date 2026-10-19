@@ -247,3 +247,34 @@ def load_settings(
     source = os.environ if environ is None else environ
     values.update({k: v for k, v in source.items() if k.startswith(("FALKORDB_", "MONEY_TRAIL_"))})
     return build_settings(values)
+
+
+_SECRET_VAR_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
+
+
+def load_secret(
+    var_name: str,
+    env_file: Optional[os.PathLike] = None,
+    environ: Optional[Mapping[str, str]] = None,
+) -> Optional[str]:
+    """Read ONE named secret (for example an LLM API key) from the process environment or an env file.
+
+    Returns None when it is unset, empty or still a ``<placeholder>``. The value is never logged or
+    echoed in an error. The variable *name* comes from validated configuration; the value never does.
+    The process environment wins over the file, as in :func:`load_settings`.
+    """
+    if not isinstance(var_name, str) or not _SECRET_VAR_RE.match(var_name):
+        raise ConfigurationError("Secret variable names must be upper-case letters, digits and underscores.")
+    value: Optional[str] = None
+    if env_file is not None:
+        path = Path(env_file)
+        if not path.is_file():
+            raise ConfigurationError(f"Environment file not found: {path}")
+        value = dotenv_values(path).get(var_name)
+    source = os.environ if environ is None else environ
+    if source.get(var_name) is not None:
+        value = source[var_name]
+    value = (value or "").strip()
+    if not value or (value.startswith("<") and value.endswith(">")):
+        return None
+    return value

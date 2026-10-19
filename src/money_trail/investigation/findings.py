@@ -14,6 +14,7 @@ never overwritten or deleted, so earlier findings stay as the record of an earli
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional, Sequence
 
 from money_trail.database import FalkorDBConnection, GraphStore
@@ -158,3 +159,88 @@ def get_investigation(conn: FalkorDBConnection, inv_id: str, *, limit: int) -> O
     return {"investigation": node, "started_from": starts,
             "findings": [{**f, "evidence": list(f["evidence"].values())} for f in findings.values()],
             "transactions": txs, "truncated": truncated}
+
+
+_RECORDED_COUNT = re.compile(r"(\d+) transaction\(s\) referenced")
+
+
+def _tx_details(store: GraphStore, tx_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    ids = sorted(set(tx_ids))
+    nodes = store.fetch_nodes("Transaction", ids) if ids else {}
+    ends = store.fetch_transaction_endpoints(ids) if ids else {}
+    out = {}
+    for t in ids:
+        if t in nodes:
+            senders, receivers = ends.get(t, (set(), set()))
+            out[t] = {"transaction_id": t, "amount": nodes[t].get("amount"), "currency": nodes[t].get("currency"),
+                      "timestamp": nodes[t].get("timestamp"), "source_accounts": sorted(senders),
+                      "destination_accounts": sorted(receivers)}
+    return out
+
+
+def get_evidence(conn: FalkorDBConnection, evidence_id: str, *, limit: int) -> Optional[Dict[str, Any]]:
+    """One stored evidence item with the transactions it references. None when the item does not exist.
+
+    Incompleteness is reported, never repaired: `problems` lists a missing reference set, referenced
+    transactions that no longer exist, and transactions without exactly one source and destination.
+    """
+    store = GraphStore(conn)
+    node = store.fetch_nodes("Evidence", [evidence_id]).get(evidence_id)
+    if node is None:
+        return None
+    g = conn.graph
+    rows = g.ro_query("MATCH (e:Evidence {evidence_id: $e})-[:REFERENCES]->(t:Transaction) "
+                      "RETURN t.transaction_id ORDER BY t.timestamp, t.transaction_id LIMIT $cap",
+                      {"e": evidence_id, "cap": limit + 1}).result_set
+    truncated = len(rows) > limit
+    tx_ids = [r[0] for r in rows[:limit]]
+    txs = _tx_details(store, tx_ids)
+    findings = [r[0] for r in g.ro_query("MATCH (f:Finding)-[:SUPPORTED_BY]->(:Evidence {evidence_id: $e}) "
+                                         "RETURN f.finding_id ORDER BY f.finding_id LIMIT $cap",
+                                         {"e": evidence_id, "cap": limit}).result_set]
+    problems = []
+    if not tx_ids:
+        problems.append("evidence references no transactions")
+    missing = [t for t in tx_ids if t not in txs]
+    if missing:
+        problems.append(f"{len(missing)} referenced transaction(s) could not be read")
+    odd = [t for t, d in txs.items() if len(d["source_accounts"]) != 1 or len(d["destination_accounts"]) != 1]
+    if odd:
+        problems.append(f"{len(odd)} transaction(s) do not have exactly one source and one destination account")
+    # Deleting a transaction removes its REFERENCES edge too, so a shrunken reference set looks complete.
+    # Persisted evidence records how many transactions it referenced; compare with what is there now.
+    m = _RECORDED_COUNT.search(node.get("description") or "")
+    if m and not truncated and int(m.group(1)) != len(tx_ids):
+        problems.append(f"evidence records {m.group(1)} referenced transaction(s) but {len(tx_ids)} are present in the graph")
+    if truncated:
+        problems.append("reference list truncated at the result limit")
+    return {"evidence": {k: node.get(k) for k in ("evidence_id", "created_at", "produced_by_tool", "query_ref", "description")},
+            "transaction_ids": tx_ids, "transactions": txs, "supports_findings": findings,
+            "complete": not problems, "problems": problems, "truncated": truncated}
+
+
+def get_finding(conn: FalkorDBConnection, finding_id: str, *, limit: int) -> Optional[Dict[str, Any]]:
+    """One stored finding with its investigations and supporting evidence. None when it does not exist."""
+    store = GraphStore(conn)
+    node = store.fetch_nodes("Finding", [finding_id]).get(finding_id)
+    if node is None:
+        return None
+    g = conn.graph
+    invs = [r[0] for r in g.ro_query("MATCH (i:Investigation)-[:HAS_FINDING]->(:Finding {finding_id: $f}) "
+                                     "RETURN i.investigation_id ORDER BY i.investigation_id LIMIT $cap",
+                                     {"f": finding_id, "cap": limit}).result_set]
+    eids = [r[0] for r in g.ro_query("MATCH (:Finding {finding_id: $f})-[:SUPPORTED_BY]->(e:Evidence) "
+                                     "RETURN e.evidence_id ORDER BY e.evidence_id LIMIT $cap",
+                                     {"f": finding_id, "cap": limit}).result_set]
+    evidence, problems = [], []
+    if not eids:
+        problems.append("finding has no supporting evidence")
+    for eid in eids:
+        ev = get_evidence(conn, eid, limit=limit)
+        if ev is None:
+            problems.append(f"supporting evidence {eid} could not be read")
+            continue
+        evidence.append(ev)
+        problems += [f"{eid}: {x}" for x in ev["problems"]]
+    return {"finding": {k: node.get(k) for k in ("finding_id", "kind", "statement", "created_at")},
+            "investigation_ids": invs, "evidence": evidence, "complete": not problems, "problems": problems}

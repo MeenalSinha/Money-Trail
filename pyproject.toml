@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "money-trail"
-version = "0.3.0"
-description = "Money Trail: graph-backed financial investigation agent (Phase 1 foundation)"
+version = "0.4.0"
+description = "Money Trail: graph-backed financial investigation agent (Phase 4: AI investigation agent)"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "falkordb==1.8.0",
+    "anthropic==1.11.0",
     "python-dotenv>=1.0,<2.0",
 ]
 
@@ -31,4 +32,5 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
     "integration: requires a real FalkorDB instance (see README)",
+    "provider: makes real requests to the configured LLM provider; blocked (skipped with a reason) when no credential is set",
 ]

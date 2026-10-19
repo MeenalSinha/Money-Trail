@@ -15,7 +15,8 @@ from money_trail.config import Settings
 from money_trail.config.settings import QUERY_CEILINGS
 from money_trail.database import FalkorDBConnection
 from money_trail.database import graph_schema as gs
-from money_trail.exceptions import QueryError
+from money_trail.exceptions import QueryError, QueryTimeoutError
+from redis import exceptions as redis_exc
 
 DIRECTIONS = ("in", "out", "both")
 TRACE_DIRECTIONS = ("forward", "backward")
@@ -71,13 +72,22 @@ def _tx_key(tx: Dict[str, Any]):
 
 
 class InvestigationQueries:
-    def __init__(self, conn: FalkorDBConnection, limits: QueryLimits) -> None:
+    def __init__(self, conn: FalkorDBConnection, limits: QueryLimits, timeout_ms: Optional[int] = None) -> None:
+        if timeout_ms is not None and (isinstance(timeout_ms, bool) or not isinstance(timeout_ms, int) or timeout_ms < 1):
+            raise QueryError("timeout_ms must be a positive integer (milliseconds) or None.")
         self._conn = conn
         self.limits = limits
+        self._timeout = timeout_ms          # None: no server-side timeout (the Phase 2 behaviour)
         self._N = {n.label: n for n in gs.NODES}
 
     def _ro(self, query: str, params: Dict[str, Any]):
-        return self._conn.graph.ro_query(query, params).result_set
+        try:
+            return self._conn.graph.ro_query(query, params, timeout=self._timeout).result_set
+        except redis_exc.ResponseError as exc:
+            if self._timeout is not None and "time" in str(exc).lower() and "out" in str(exc).lower():
+                raise QueryTimeoutError(f"query exceeded the configured timeout of {self._timeout} ms; "
+                                        "its results are incomplete.") from None
+            raise
 
     # --- Query 1 ------------------------------------------------------------
     def transaction_context(self, transaction_id: str) -> QueryOutcome:
@@ -171,6 +181,47 @@ class InvestigationQueries:
             f"WHERE all(i IN range(0, size(txs) - 2) WHERE {order_ok}{gap_ok}) "
             "RETURN nodes(p) AS ns LIMIT $cap")
         rows = self._ro(query, {"id": transaction_id, "gap": gap, "cap": paths_cap + 1})
+        return self._package_trace(rows, {"start_transaction": transaction_id, "direction": direction,
+                                          "max_hops": hops, "max_paths": paths_cap, "max_gap_ms": gap}, paths_cap)
+
+    def trace_network_from_account(self, account_id: str, direction: str = "forward",
+                                   max_hops: Optional[int] = None, max_paths: Optional[int] = None,
+                                   max_gap_ms: Optional[int] = None) -> QueryOutcome:
+        """Time-respecting transaction paths that start at an account (Phase 4).
+
+        forward: the account's outgoing transactions and the later transactions that continue from their
+        destination accounts. backward: the account's incoming transactions and the earlier transactions
+        that fed their source accounts. Paths contain 2..max_hops transactions (single transactions are
+        account activity; use account_activity for those). Same bounds, ordering and truncation rules as
+        trace_network. Hops is the only value placed in the query text, validated and capped.
+        """
+        if direction not in TRACE_DIRECTIONS:
+            raise QueryError(f"direction must be one of: {', '.join(TRACE_DIRECTIONS)}.")
+        lim = self.limits.override(max_hops=max_hops, max_paths=max_paths, max_gap_ms=max_gap_ms)
+        hops = lim.require("max_hops", "hops")
+        if hops < 2:
+            raise QueryError("max_hops must be at least 2 for an account-anchored trace.")
+        paths_cap = lim.require("max_paths", "paths")
+        gap = lim.max_gap_ms
+        if gap is not None:
+            gap = lim.require("max_gap_ms", None)
+        if not self._ro("MATCH (a:Account {account_id: $id}) RETURN 1", {"id": account_id}):
+            return QueryOutcome("not_found", "trace_network", {"account_id": account_id})
+        arrow_l, arrow_r = ("", "->") if direction == "forward" else ("<", "-")
+        order_ok = ("txs[i].timestamp <= txs[i+1].timestamp" if direction == "forward"
+                    else "txs[i].timestamp >= txs[i+1].timestamp")
+        gap_ok = "" if gap is None else " AND abs(txs[i+1].timestamp - txs[i].timestamp) <= $gap"
+        query = (
+            f"MATCH p = (a0:Account {{account_id: $id}}){arrow_l}-[:SENT|RECEIVED_BY*3..{2 * int(hops) - 1}]{arrow_r}"
+            "(tn:Transaction) "
+            "WITH p, [n IN nodes(p) WHERE labels(n)[0] = 'Transaction'] AS txs "
+            f"WHERE all(i IN range(0, size(txs) - 2) WHERE {order_ok}{gap_ok}) "
+            "RETURN nodes(p) AS ns LIMIT $cap")
+        rows = self._ro(query, {"id": account_id, "gap": gap, "cap": paths_cap + 1})
+        return self._package_trace(rows, {"start_account": account_id, "direction": direction,
+                                          "max_hops": hops, "max_paths": paths_cap, "max_gap_ms": gap}, paths_cap)
+
+    def _package_trace(self, rows, header: Dict[str, Any], paths_cap: int) -> QueryOutcome:
         truncated = len(rows) > paths_cap
         paths, accounts, txs_seen = [], {}, {}
         for (nodes,) in rows[:paths_cap]:
@@ -197,8 +248,7 @@ class InvestigationQueries:
                 accounts[src] = accounts.get(src, {"account_id": src})
                 accounts[dst] = accounts.get(dst, {"account_id": dst})
         return QueryOutcome("ok", "trace_network", {
-            "start_transaction": transaction_id, "direction": direction, "max_hops": hops, "max_paths": paths_cap,
-            "max_gap_ms": gap, "paths": paths,
+            **header, "paths": paths,
             "transactions": sorted(txs_seen.values(), key=_tx_key),
             "transaction_endpoints": endpoints,
             "accounts": sorted(accounts)}, truncated=truncated,

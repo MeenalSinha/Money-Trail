@@ -307,6 +307,125 @@ def _cmd_evaluate(args) -> int:
     return 0 if report["detection"]["complete"] else EXIT_INCOMPLETE
 
 
+# --- Phase 4: AI-assisted investigation ------------------------------------------------------
+EXIT_UNSUPPORTED = 5
+_AGENT_EXIT = {"completed": 0, "incomplete": EXIT_INCOMPLETE, "anchor_not_found": EXIT_NOT_FOUND,
+               "unsupported_request": EXIT_UNSUPPORTED, "invalid_request": 1, "failed": 1}
+
+
+def _cmd_agent(args) -> int:
+    from money_trail.agent.config import load_agent_config
+    cfg = load_agent_config(args.agent_config)
+    env_file = _resolve_env_file(args.env_file)
+    if args.agent_action == "validate-config":
+        from money_trail.config.settings import load_secret
+        out = {"valid": True, "agent": cfg.safe_summary()}
+        if args.check_credentials:
+            out["credential_set"] = load_secret(cfg.provider.api_key_env, env_file) is not None
+            out["credential_variable"] = cfg.provider.api_key_env
+        _emit(out, args.json, "agent config valid\n" + json.dumps(out["agent"], indent=2) +
+              (f"\ncredential {cfg.provider.api_key_env}: {'set' if out['credential_set'] else 'NOT set'}"
+               if args.check_credentials else ""))
+        return 0 if out.get("credential_set", True) else 1
+    det = _load_detection(args.detection_config) if args.detection_config else None
+    if det is None:
+        raise ConfigurationError("--detection-config is required.")
+    if args.agent_action == "tools":
+        from money_trail.agent.tools.registry import build_registry
+        reg = build_registry(det, cfg.tools)
+        rows = [{"name": t.name, "description": t.description, "mutates_state": t.mutates_state, "input_schema": t.spec().input_schema,
+                 "returns": t.result_description} for t in (reg.get(n) for n in reg.names)]
+        _emit({"tools": rows}, args.json, "\n".join(f"{r['name']:<27} reads graph only  returns: {r['returns']}\n    {r['description']}" for r in rows))
+        return 0
+    if args.agent_action == "evaluate":
+        return _agent_evaluate(args, cfg, det, env_file)
+    return _agent_investigate(args, cfg, det, env_file)
+
+
+def _agent_evaluate(args, cfg, det, env_file) -> int:
+    """Run the scenario set against the REAL configured provider and print agent-quality metrics. Needs a credential."""
+    from money_trail.agent.agent import InvestigationAgent
+    from money_trail.agent.llm.factory import LazyProvider
+    from money_trail.config.settings import load_secret
+    from money_trail.evaluation.agent_eval import build_scenarios, evaluate_runs, run_scenarios
+    from money_trail.investigation.engine import InvestigationEngine, InvestigationRequest
+    if load_secret(cfg.provider.api_key_env, env_file) is None:
+        print(f"error: {cfg.provider.api_key_env} is not set; a live evaluation needs a real provider credential "
+              "(nothing was run).", file=sys.stderr)
+        return 1
+    settings = load_settings(env_file)
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        gt = json.loads(Path(args.ground_truth).read_text(encoding="utf-8"))
+        labelled = {t for p in gt["patterns"] for t in p["transaction_ids"]}
+        engine = InvestigationEngine(conn, det)
+
+        def quiet():
+            for (tid,) in conn.graph.ro_query("MATCH (t:Transaction {dataset: $ns}) RETURN t.transaction_id ORDER BY t.transaction_id LIMIT 200",
+                                              {"ns": gt["namespace"]}).result_set:
+                if tid not in labelled:
+                    r = engine.investigate(InvestigationRequest("transaction", tid))
+                    if r.complete and not r.detections:
+                        return tid
+            return None
+        provider = LazyProvider(cfg.provider.name, model=cfg.provider.model, base_url=cfg.provider.base_url,
+                                get_api_key=lambda: load_secret(cfg.provider.api_key_env, env_file))
+        agent = InvestigationAgent(conn, det, cfg, provider)
+        result = evaluate_runs(conn, run_scenarios(agent, build_scenarios(conn, Path(args.ground_truth), quiet)))
+    result["note"] = ("Live provider run on a small synthetic scenario set; not evidence of real-world detection performance.")
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def _agent_request(args) -> dict:
+    if args.request_file:
+        if any((args.transaction_id, args.account_id, args.question, args.intent, args.namespace)):
+            raise ConfigurationError("--request-file cannot be combined with --transaction-id, --account-id, --question, --intent or --namespace.")
+        try:
+            raw = json.loads(Path(args.request_file).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ConfigurationError(f"Request file is not readable JSON ({type(exc).__name__}).") from None
+    else:
+        if bool(args.transaction_id) == bool(args.account_id):
+            raise ConfigurationError("give exactly one of --transaction-id, --account-id or --request-file.")
+        raw = {"anchor_type": "transaction" if args.transaction_id else "account",
+               "anchor_id": args.transaction_id or args.account_id}
+        for k, v in (("question", args.question), ("intent", args.intent), ("namespace", args.namespace)):
+            if v is not None:
+                raw[k] = v
+    limits = {k: v for k, v in (("max_steps", args.max_steps), ("max_tool_calls", args.max_tool_calls),
+                                ("max_duration_seconds", args.max_duration_seconds)) if v is not None}
+    if limits and isinstance(raw, dict):
+        raw = {**raw, "limits": {**(raw.get("limits") or {}), **limits}}
+    return raw
+
+
+def _agent_investigate(args, cfg, det, env_file) -> int:
+    from money_trail.agent.agent import InvestigationAgent
+    from money_trail.agent.llm.factory import LazyProvider
+    from money_trail.agent.report import render_markdown, render_text
+    from money_trail.config.settings import load_secret
+    raw = _agent_request(args)
+    settings = load_settings(env_file)
+    configure_logging(settings.log_level)
+    provider = LazyProvider(cfg.provider.name, model=cfg.provider.model, base_url=cfg.provider.base_url,
+                            get_api_key=lambda: load_secret(cfg.provider.api_key_env, env_file))
+    with FalkorDBConnection(settings) as conn:
+        health = check_health(conn)
+        if not health.healthy:
+            print(f"error: database not ready ({health.status}): {health.message}", file=sys.stderr)
+            return 1
+        report = InvestigationAgent(conn, det, cfg, provider).run(raw, persist=args.persist)
+    fmt = "json" if args.json else args.format
+    print(json.dumps(report, indent=2, sort_keys=True) if fmt == "json" else
+          render_markdown(report, trace=args.trace) if fmt == "markdown" else render_text(report, trace=args.trace))
+    err = report["metadata"].get("error")
+    if err and report["metadata"]["run_status"] in ("failed", "incomplete") and any(
+            r.startswith("provider_error") for r in report["metadata"]["completion_reasons"]):
+        print(f"error: model provider failure: {err}", file=sys.stderr)
+    return _AGENT_EXIT.get(report["metadata"]["run_status"], 1)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="money-trail", description="Money Trail data and investigation commands.")
     sub = p.add_subparsers(dest="command", required=True)
@@ -393,6 +512,38 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ev.add_argument("--namespace", required=True)
     ev.add_argument("--ground-truth", required=True, help="ground_truth.json of the generated dataset (read only after detection).")
     ev.set_defaults(fn=_cmd_evaluate)
+
+    ag = sub.add_parser("agent", parents=[env], help="AI-assisted investigation (Phase 4); `money-trail investigate` stays the graph-only engine.")
+    ags = ag.add_subparsers(dest="agent_action", required=True)
+
+    def agent_common(sp):
+        sp.add_argument("--agent-config", required=True, help="Agent configuration JSON (examples/agent.example.json).")
+        return sp
+    avc = agent_common(ags.add_parser("validate-config", parents=[after], help="Validate the agent configuration (offline)."))
+    avc.add_argument("--check-credentials", action="store_true", help="Also report whether the API-key variable is set (never prints it).")
+    avc.set_defaults(fn=_cmd_agent)
+    atl = agent_common(ags.add_parser("tools", parents=[after], help="List the registered tools and their schemas (offline)."))
+    atl.add_argument("--detection-config", required=True)
+    atl.set_defaults(fn=_cmd_agent)
+    ev = agent_common(ags.add_parser("evaluate", parents=[after], help="Live agent-quality evaluation against the real provider (needs a credential)."))
+    ev.add_argument("--detection-config", required=True)
+    ev.add_argument("--ground-truth", required=True, help="Generated ground_truth.json (used by the evaluator only).")
+    ev.set_defaults(fn=_cmd_agent)
+    ai = agent_common(ags.add_parser("investigate", parents=[after], help="Run the agent from a transaction or account."))
+    ai.add_argument("--detection-config", required=True)
+    ai.add_argument("--transaction-id")
+    ai.add_argument("--account-id")
+    ai.add_argument("--request-file", help="JSON investigation request (anchor_type, anchor_id, question, intent, ...).")
+    ai.add_argument("--question", help="The investigative question (guidance only; the anchor decides what is investigated).")
+    ai.add_argument("--intent", help="Structured intent; unsupported values are refused.")
+    ai.add_argument("--namespace", help="Dataset namespace used to qualify a bare anchor id.")
+    ai.add_argument("--persist", action="store_true", help="Persist verified findings and evidence (transaction anchors only).")
+    ai.add_argument("--format", choices=("text", "json", "markdown"), default="text")
+    ai.add_argument("--trace", action="store_true", help="Include the tool-call trace in text/markdown output.")
+    ai.add_argument("--max-steps", type=int)
+    ai.add_argument("--max-tool-calls", type=int)
+    ai.add_argument("--max-duration-seconds", type=float)
+    ai.set_defaults(fn=_cmd_agent)
 
     args = p.parse_args(argv)
     try:
