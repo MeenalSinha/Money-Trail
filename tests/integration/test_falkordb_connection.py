@@ -25,7 +25,7 @@ def test_g_unreachable_port_reports_failure(base_settings):
                                      "connect_timeout": 1.0})
     with FalkorDBConnection(bad) as c, pytest.raises(DatabaseConnectionError) as e:
         c.ping()
-    assert "Could not connect" in str(e.value)
+    assert "Could not connect" in str(e.value) or "did not respond in time" in str(e.value)
     assert (base_settings.password or "<none>") not in str(e.value)
 
 

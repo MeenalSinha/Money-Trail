@@ -1,13 +1,17 @@
-# Money Trail graph schema (schema version 1)
+# Money Trail Graph Schema (Schema Version 2)
 
-Source of truth: `src/money_trail/database/graph_schema.py`. This document describes exactly what that
-module defines and what `money-trail-init` creates. Tests in `tests/unit/test_schema_definitions.py` keep the
-code self-consistent.
+Source of truth: `src/money_trail/database/graph_schema.py`. This document describes the schema definition, node specs, relationship specifications, indexes, constraints, and the versioned migration mechanism introduced in Phase 5.
 
-## Model
+## Schema Versioning & Evolution
+
+* Current Schema Version: `2` (defined as `SCHEMA_VERSION = 2` in `graph_schema.py`).
+* Durable Migration Storage: Schema version and applied migrations are durably persisted in the FalkorDB graph as `(:SchemaMigration)` nodes.
+* Additive Evolution: Migration from Version 1 to Version 2 is non-destructive and strictly additive. All existing financial transactions, accounts, alerts, investigations, findings, and evidence remain completely untouched and valid.
+
+## Graph Model Overview
 
 ```mermaid
-graph LR
+graph TD
     Account -- SENT --> Transaction
     Transaction -- RECEIVED_BY --> Account
     Alert -- FLAGS --> Transaction
@@ -17,110 +21,97 @@ graph LR
     Evidence -- REFERENCES --> Transaction
     Agent -- ASSIGNED_TO --> Investigation
     Agent -- AUTHORED --> Finding
+
+    Investigation -- HAS_SESSION --> AgentSession
+    AgentSession -- RECORDED --> Memory
+    Agent -- PARTICIPATED_IN --> AgentSession
+    Memory -- GROUNDED_BY --> Evidence
+    Memory -- SUPERSEDES --> Memory
+    Memory -- CONTRADICTS --> Memory
+    Agent -- OWNS_TASK --> AgentTask
+    AgentTask -- BELONGS_TO --> Investigation
+    AgentTask -- DEPENDS_ON --> AgentTask
+    AgentTask -- PRODUCED_FINDING --> Finding
+    Agent -- INITIATED_HANDOFF --> AgentHandoff
+    AgentHandoff -- TRANSFERS_TASK --> AgentTask
+    AgentHandoff -- HANDOFF_IN --> Investigation
 ```
 
-Text form:
+Text representation of Phase 5 additions:
 
 ```text
-(Account)-[:SENT]->(Transaction)-[:RECEIVED_BY]->(Account)
-(Alert)-[:FLAGS]->(Transaction)
-(Investigation)-[:STARTED_FROM]->(Transaction)
-(Investigation)-[:HAS_FINDING]->(Finding)-[:SUPPORTED_BY]->(Evidence)-[:REFERENCES]->(Transaction)
-(Agent)-[:ASSIGNED_TO]->(Investigation)        (added, see below)
-(Agent)-[:AUTHORED]->(Finding)                 (added, see below)
+(Investigation)-[:HAS_SESSION]->(AgentSession)
+(AgentSession)-[:RECORDED]->(Memory)
+(Agent)-[:PARTICIPATED_IN]->(AgentSession)
+(Memory)-[:GROUNDED_BY]->(Evidence)
+(Memory)-[:SUPERSEDES]->(Memory)
+(Memory)-[:CONTRADICTS]->(Memory)
+(Agent)-[:OWNS_TASK]->(AgentTask)
+(AgentTask)-[:BELONGS_TO]->(Investigation)
+(AgentTask)-[:DEPENDS_ON]->(AgentTask)
+(AgentTask)-[:PRODUCED_FINDING]->(Finding)
+(Agent)-[:INITIATED_HANDOFF]->(AgentHandoff)
+(AgentHandoff)-[:TRANSFERS_TASK]->(AgentTask)
+(AgentHandoff)-[:HANDOFF_IN]->(Investigation)
 ```
 
-A transfer is modelled as a Transaction node between two Account nodes (rather than an Account-to-Account
-edge) so that alerts, investigations and evidence can point at the individual transfer, and so multi-hop
-paths alternate Account / Transaction / Account.
+## Node Labels & Property Contracts
 
-## Conventions
-
-* Identity: every node has one string identity property, unique in the graph. Display names are never identities.
-* Namespacing: datasets do not share an identifier namespace. The future ingestion pipeline must supply
-  already-namespaced identifiers (for example `<dataset>:<source id>`). The schema does not generate them.
-* Timestamps: integer epoch milliseconds, UTC.
-* Money: `Transaction.amount` is a non-negative integer in minor currency units (cents, paise);
-  `currency` is a required ISO 4217 code. No floating point money.
-* Unknown properties are rejected by `GraphStore` before any write.
-
-## Nodes
-
-| Label | Identity | Required | Optional | Purpose |
+| Label | Identity Property | Required Properties | Optional Properties | Purpose |
 |---|---|---|---|---|
-| Account | `account_id` (str) | `account_id` | `dataset` (str), `created_at` (int) | A financial account. No owner or personal identity assumed. |
-| Transaction | `transaction_id` (str) | `transaction_id`, `amount` (int >= 0), `currency` (str), `timestamp` (int) | `channel`, `reference`, `dataset` (str) | One transfer of funds. |
-| Alert | `alert_id` (str) | `alert_id`, `created_at` (int) | `alert_type`, `severity`, `source`, `description` (str) | A signal attached to a transaction. No generation rules exist yet. |
-| Investigation | `investigation_id` (str) | `investigation_id`, `status` (open, in_progress, closed), `created_at` (int) | `updated_at` (int), `title` (str) | Persistent investigation state. |
-| Finding | `finding_id` (str) | `finding_id`, `kind` (observation, interpretation, hypothesis), `statement` (str), `created_at` (int) | `confidence` (float in [0, 1]) | An analytical statement. `kind` keeps facts, interpretations and open hypotheses distinct. |
-| Evidence | `evidence_id` (str) | `evidence_id`, `created_at` (int) | `produced_by_tool`, `query_ref`, `description` (str) | A record supporting a finding, traceable to the tool/query that produced it. |
-| Agent | `agent_id` (str) | `agent_id`, `role` (str) | `name` (str) | A future AI participant. No agents are implemented. |
+| Account | `account_id` (str) | `account_id` | `dataset`, `created_at` | Financial account node |
+| Transaction | `transaction_id` (str) | `transaction_id`, `amount`, `currency`, `timestamp` | `channel`, `reference`, `dataset` | Fund transfer record |
+| Alert | `alert_id` (str) | `alert_id`, `created_at` | `alert_type`, `severity`, `source`, `description` | Transaction signal |
+| Investigation | `investigation_id` (str) | `investigation_id`, `status` (`open`, `in_progress`, `closed`), `created_at` | `updated_at`, `title` | Persistent investigation record |
+| Finding | `finding_id` (str) | `finding_id`, `kind` (`observation`, `hypothesis`, `interpretation`), `statement`, `created_at` | `confidence` | Analytical finding |
+| Evidence | `evidence_id` (str) | `evidence_id`, `created_at` | `produced_by_tool`, `query_ref`, `description` | Supporting evidence for findings |
+| Agent | `agent_id` (str) | `agent_id`, `role` (`coordinator`, `investigator`, `auditor`, `memory_curator`, `agent`) | `name` | Registered AI agent role |
+| **AgentSession** | `session_id` (str) | `session_id`, `investigation_id`, `status` (`active`, `completed`, `interrupted`, `failed`), `started_at` | `completed_at`, `dataset`, `updated_at`, `metadata_json` | Persistent investigation run/session |
+| **Memory** | `memory_id` (str) | `memory_id`, `memory_type` (`episodic`, `semantic`), `scope` (`investigation`, `dataset`), `statement`, `status` (`active`, `superseded`, `invalidated`, `revalidation_needed`), `created_at` | `dataset`, `investigation_id`, `updated_at`, `valid_from`, `valid_to`, `provenance_tool`, `rule_fingerprint`, `confidence` | Provenance-aware persistent graph memory |
+| **AgentTask** | `task_id` (str) | `task_id`, `task_type`, `status` (`pending`, `ready`, `running`, `completed`, `blocked`, `failed`, `cancelled`), `investigation_id`, `created_at` | `session_id`, `assigned_role`, `assigned_agent_id`, `attempt_count`, `idempotency_key`, `updated_at`, `completed_at`, `result_summary`, `error_detail` | Durable task for multi-agent DAG coordination |
+| **AgentHandoff** | `handoff_id` (str) | `handoff_id`, `investigation_id`, `task_id`, `source_agent_id`, `target_role`, `status` (`initiated`, `transferred`, `accepted`, `completed`, `failed`, `rejected`), `created_at` | `target_agent_id`, `reason`, `context_summary`, `idempotency_key`, `updated_at`, `completed_at` | Structured context & task transfer between agents |
+| **SchemaMigration** | `version` (int) | `version`, `description`, `applied_at`, `status` | none | Durable graph record of applied migrations |
 
 ## Relationships
 
-| Type | Direction | Purpose | Properties |
+| Type | Direction | Purpose | Core (v1) / Additive (v2) |
 |---|---|---|---|
-| SENT | Account -> Transaction | Account originated the transfer | none |
-| RECEIVED_BY | Transaction -> Account | Transfer credited the account | none |
-| FLAGS | Alert -> Transaction | Alert refers to the transfer | none |
-| STARTED_FROM | Investigation -> Transaction | Investigation entry point | none |
-| HAS_FINDING | Investigation -> Finding | Finding recorded in the investigation | none |
-| SUPPORTED_BY | Finding -> Evidence | Evidence backing the finding | none |
-| REFERENCES | Evidence -> Transaction | Transaction record the evidence points to | none |
-| ASSIGNED_TO (added) | Agent -> Investigation | Agent participates in the investigation | `assigned_at` (int) |
-| AUTHORED (added) | Agent -> Finding | Provenance of a finding across agents | `authored_at` (int) |
+| SENT | Account -> Transaction | Transfer debited source account | Core |
+| RECEIVED_BY | Transaction -> Account | Transfer credited destination account | Core |
+| FLAGS | Alert -> Transaction | Alert flagged transfer | Core |
+| STARTED_FROM | Investigation -> Transaction | Investigation entry anchor | Core |
+| HAS_FINDING | Investigation -> Finding | Finding recorded in investigation | Core |
+| SUPPORTED_BY | Finding -> Evidence | Evidence backing analytical claim | Core |
+| REFERENCES | Evidence -> Transaction | Concrete transaction linked to evidence | Core |
+| ASSIGNED_TO | Agent -> Investigation | Agent assigned to case | Non-core |
+| AUTHORED | Agent -> Finding | Author attribution of finding | Non-core |
+| **HAS_SESSION** | Investigation -> AgentSession | Investigation has persistent sessions | Additive (v2) |
+| **RECORDED** | AgentSession -> Memory | Session recorded memory item | Additive (v2) |
+| **PARTICIPATED_IN** | Agent -> AgentSession | Agent role active in session | Additive (v2) |
+| **GROUNDED_BY** | Memory -> Evidence | Semantic memory grounded in graph evidence | Additive (v2) |
+| **SUPERSEDES** | Memory -> Memory | Replacement memory supersedes obsolete memory | Additive (v2) |
+| **CONTRADICTS** | Memory -> Memory | Explicit contradiction between claims | Additive (v2) |
+| **OWNS_TASK** | Agent -> AgentTask | Agent ownership of task | Additive (v2) |
+| **BELONGS_TO** | AgentTask -> Investigation | Task associated with investigation | Additive (v2) |
+| **DEPENDS_ON** | AgentTask -> AgentTask | Prerequisite dependency between tasks | Additive (v2) |
+| **PRODUCED_FINDING**| AgentTask -> Finding | Task output finding | Additive (v2) |
+| **INITIATED_HANDOFF**| Agent -> AgentHandoff | Agent initiated handoff | Additive (v2) |
+| **TRANSFERS_TASK** | AgentHandoff -> AgentTask | Handoff transfers task context | Additive (v2) |
+| **HANDOFF_IN** | AgentHandoff -> Investigation | Handoff scoped to investigation | Additive (v2) |
 
-The two added relationships exist only to cover the stated Track 2 need (agent assignment and participation);
-they are marked `core=False` in the code.
+## Constraints & Range Indexes
 
-## Indexes and constraints actually created
+FalkorDB enforces range indexes and constraints on node properties:
+* **Range Indexes**: Built on all node identity properties (`account_id`, `transaction_id`, `alert_id`, `investigation_id`, `finding_id`, `evidence_id`, `agent_id`, `session_id`, `memory_id`, `task_id`, `handoff_id`, `version`), plus query-traversal properties `Transaction.timestamp`, `Investigation.status`, `AgentTask.status`, and `Memory.created_at`.
+* **Unique Node Constraints**: Enforced on every node identity property.
+* **Mandatory Node Constraints**: Enforced on all required properties defined in the schema registry.
 
-Verified on FalkorDB module build 41803 with client `falkordb==1.8.0`:
+## Migration Mechanism (`money_trail.database.migration`)
 
-* 9 node range indexes: one on each of the 7 identity properties, plus `Transaction.timestamp` (time-ordered path
-  queries) and `Investigation.status` (resuming open investigations).
-* 7 UNIQUE node constraints, one per identity property. FalkorDB requires the matching index first, and
-  initialization creates indexes before constraints.
-* 18 MANDATORY node constraints, one per required property in the tables above.
-
-Total: 9 indexes and 25 constraints; `money-trail-init` reports these counts on first run and zero on later runs.
-
-## Phase 2 status
-
-Phase 2 (ingestion and queries) reuses this schema without any change; `SCHEMA_VERSION` remains 1. Ingestion
-populates Account, Transaction and Alert nodes and the `SENT`, `RECEIVED_BY` and `FLAGS` relationships only.
-`Account.dataset` and `Transaction.dataset` carry the dataset namespace; alerts are namespaced through their
-identifier. See `../data-ingestion.md`.
-
-## Phase 3 status
-
-Phase 3 (detection engine) also reuses this schema without change; `SCHEMA_VERSION` remains 1. It writes `Investigation`, `Finding` and
-`Evidence` nodes with the existing properties (`Finding.kind` is `observation` or `hypothesis`; `confidence` is never set) and the
-`STARTED_FROM`, `HAS_FINDING`, `SUPPORTED_BY` and `REFERENCES` relationships. Identifiers are deterministic hashes (see `../detection.md`).
-`Agent` nodes and the `ASSIGNED_TO` and `AUTHORED` relationships remain unused. No pattern or evaluation label is stored on any node.
-
-## Limitations and behaviour worth knowing
-
-* Constraints and indexes are on nodes only. No relationship constraints or indexes exist, so duplicate edges
-  between the same pair are prevented by `GraphStore` (it uses MERGE), not by the database.
-* Type, range and vocabulary rules (for example `amount >= 0`, `Finding.kind`) are enforced by Python validation
-  in `graph_schema.validate_*`, not by the database. FalkorDB constraints cover uniqueness and presence only.
-* FalkorDB checks mandatory constraints when a node is created, so `GraphStore.upsert_node` supplies every
-  property in the CREATE statement instead of MERGE-then-SET.
-* Creating a unique constraint on a graph that already contains duplicates fails. Initialization then raises
-  `SchemaError` and deletes nothing.
-* Labels are never removed from FalkorDB's label list: after initialization of a new graph `CALL db.labels()` also
-  shows the bootstrap label `__schema_bootstrap__`. No node carries it.
-* The graph key only exists once something is written. Initialization of a new graph writes and deletes one marker
-  node with a label outside the schema.
-* Schema changes after version 1 are not automated. `SCHEMA_VERSION` is defined in code but is not yet stored in
-  the graph.
-
-## How this supports later phases
-
-* Multi-hop tracing: the Account / Transaction / Account alternation supports path traversal; the integration
-  suite already runs a four-hop evidence trace (Investigation to Finding to Evidence to Transaction to Account).
-* Evidence tracing: every Finding reaches Transactions only through Evidence, and Evidence records the producing
-  tool and query.
-* Persistent context and coordination: Investigation, Finding and Agent nodes live in the same graph as the
-  transactions, so a later agent can resume an investigation by querying it.
+The migration runner:
+1. Queries FalkorDB for existing `(:SchemaMigration)` records to determine the active schema version.
+2. If no migration records exist, inspects the graph for existing v1 tables/nodes. If present, records baseline v1.
+3. Applies pending migrations sequentially in non-destructive transactions.
+4. Creates new range indexes and constraints in safe dependency order.
+5. Emits durable `(:SchemaMigration {version: 2, status: 'completed'})` node.
+6. Is safe to execute repeatedly (idempotent no-op when already current).

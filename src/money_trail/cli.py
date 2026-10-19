@@ -426,6 +426,309 @@ def _agent_investigate(args, cfg, det, env_file) -> int:
     return _AGENT_EXIT.get(report["metadata"]["run_status"], 1)
 
 
+# --- Phase 5: Persistent memory and coordination -----------------------------
+
+def _cmd_migrate(args) -> int:
+    from money_trail.database.migration import migrate_schema
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        res = migrate_schema(conn)
+    out = {
+        "graph_name": res.graph_name,
+        "from_version": res.from_version,
+        "to_version": res.to_version,
+        "applied": res.applied,
+        "indexes_created": res.indexes_created,
+        "constraints_created": res.constraints_created,
+        "already_current": res.already_current,
+    }
+    text = (
+        f"Graph {res.graph_name}: schema already current at version {res.to_version}."
+        if res.already_current
+        else f"Graph {res.graph_name}: migrated v{res.from_version} -> v{res.to_version} "
+             f"({len(res.indexes_created)} indexes, {len(res.constraints_created)} constraints)."
+    )
+    _emit(out, args.json, text)
+    return 0
+
+
+def _cmd_schema_version(args) -> int:
+    from money_trail.database.migration import get_active_schema_version, get_applied_migrations
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        ver = get_active_schema_version(conn)
+        applied = get_applied_migrations(conn)
+    out = {"active_version": ver, "applied_migrations": applied}
+    text = (
+        f"Active schema version: {ver}\nApplied migrations:\n"
+        + "\n".join(f"  v{m['version']}: {m['description']} ({m['status']})" for m in applied)
+        if applied
+        else f"Active schema version: {ver} (no migration nodes recorded)"
+    )
+    _emit(out, args.json, text)
+    return 0
+
+
+def _cmd_memory(args) -> int:
+    from money_trail.memory.store import MemoryStore
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        store = MemoryStore(conn)
+        if args.memory_action == "list":
+            if not args.scope:
+                raise ConfigurationError("--scope (investigation or dataset) is required.")
+            mems = store.query_memories(
+                scope=args.scope,
+                dataset=args.dataset,
+                investigation_id=args.investigation_id,
+                memory_type=args.type,
+                status=args.status,
+                limit=args.limit or 50,
+            )
+            out = {"memories": [m.to_dict() for m in mems]}
+            text = "\n".join(
+                f"{m.memory_id}  {m.memory_type:<9} {m.status:<10}  {m.statement[:90]}"
+                for m in mems
+            ) or "no memories found"
+            _emit(out, args.json, text)
+            return 0
+        elif args.memory_action == "show":
+            m = store.get_memory(args.memory_id)
+            if not m:
+                print(f"error: memory not found: {args.memory_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            out = m.to_dict()
+            text = (
+                f"Memory {m.memory_id} [{m.memory_type}, {m.status}]\n"
+                f"Scope: {m.scope} (investigation={m.investigation_id}, dataset={m.dataset})\n"
+                f"Statement: {m.statement}\n"
+                f"Provenance tool: {m.provenance_tool}\n"
+                f"Grounding evidence: {', '.join(m.evidence_ids) or 'none'}"
+            )
+            _emit(out, args.json, text)
+            return 0
+        elif args.memory_action == "provenance":
+            m = store.get_memory(args.memory_id)
+            if not m:
+                print(f"error: memory not found: {args.memory_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            ev_records = []
+            for eid in m.evidence_ids:
+                tx_rows = conn.graph.ro_query(
+                    "MATCH (e:Evidence {evidence_id: $eid})-[:REFERENCES]->(t:Transaction) "
+                    "RETURN t.transaction_id, t.amount, t.currency",
+                    {"eid": eid},
+                ).result_set
+                ev_records.append({
+                    "evidence_id": eid,
+                    "transactions": [{"transaction_id": r[0], "amount": r[1], "currency": r[2]} for r in tx_rows],
+                })
+            out = {"memory_id": m.memory_id, "provenance_tool": m.provenance_tool, "evidence": ev_records}
+            text = f"Memory {m.memory_id} provenance ({m.provenance_tool}):\n" + "\n".join(
+                f"  Evidence {e['evidence_id']} -> {len(e['transactions'])} transactions: {', '.join(t['transaction_id'] for t in e['transactions'])}"
+                for e in ev_records
+            )
+            _emit(out, args.json, text)
+            return 0
+        elif args.memory_action == "history":
+            m = store.get_memory(args.memory_id)
+            if not m:
+                print(f"error: memory not found: {args.memory_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            out = {
+                "memory_id": m.memory_id,
+                "status": m.status,
+                "superseded_by": m.superseded_by,
+                "supersedes": m.supersedes_id,
+                "contradictions": m.contradicting_memory_ids,
+            }
+            text = (
+                f"Memory {m.memory_id} history:\n"
+                f"  Status: {m.status}\n"
+                f"  Superseded by: {m.superseded_by or 'none'}\n"
+                f"  Supersedes: {m.supersedes_id or 'none'}\n"
+                f"  Contradictions: {', '.join(m.contradicting_memory_ids) or 'none'}"
+            )
+            _emit(out, args.json, text)
+            return 0
+    return 0
+
+
+def _cmd_task(args) -> int:
+    from money_trail.coordination.store import CoordinationStore
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        cstore = CoordinationStore(conn)
+        if args.task_action == "list":
+            if not args.investigation_id:
+                raise ConfigurationError("--investigation-id is required.")
+            tasks = cstore.list_tasks(args.investigation_id, status=args.status, role=args.role)
+            out = {"tasks": [t.__dict__ for t in tasks]}
+            text = "\n".join(
+                f"{t.task_id}  {t.task_type:<18} {t.status:<11} role={t.assigned_role or 'none':<13} deps={len(t.dependencies)}"
+                for t in tasks
+            ) or "no tasks found"
+            _emit(out, args.json, text)
+            return 0
+        elif args.task_action == "show":
+            t = cstore.get_task(args.task_id)
+            if not t:
+                print(f"error: task not found: {args.task_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            out = t.__dict__
+            text = (
+                f"Task {t.task_id} [{t.task_type}]\n"
+                f"Status: {t.status}\n"
+                f"Investigation: {t.investigation_id}\n"
+                f"Assigned: role={t.assigned_role}, agent={t.assigned_agent_id}\n"
+                f"Dependencies: {', '.join(t.dependencies) or 'none'}\n"
+                f"Summary: {t.result_summary or 'none'}\n"
+                f"Error: {t.error_detail or 'none'}"
+            )
+            _emit(out, args.json, text)
+            return 0
+        elif args.task_action == "blockers":
+            t = cstore.get_task(args.task_id)
+            if not t:
+                print(f"error: task not found: {args.task_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            unmet = []
+            for dep_id in t.dependencies:
+                dep = cstore.get_task(dep_id)
+                if not dep or dep.status != "completed":
+                    unmet.append({"task_id": dep_id, "status": dep.status if dep else "missing"})
+            out = {"task_id": t.task_id, "status": t.status, "unmet_dependencies": unmet, "error_detail": t.error_detail}
+            text = (
+                f"Task {t.task_id} blockers (status: {t.status}):\n"
+                + ("\n".join(f"  Unmet dependency: {u['task_id']} (status: {u['status']})" for u in unmet) if unmet else "  No unmet dependencies.")
+                + (f"\n  Error detail: {t.error_detail}" if t.error_detail else "")
+            )
+            _emit(out, args.json, text)
+            return 0
+    return 0
+
+
+def _cmd_handoff(args) -> int:
+    from money_trail.coordination.store import CoordinationStore
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        cstore = CoordinationStore(conn)
+        if args.handoff_action == "list":
+            if not args.investigation_id:
+                raise ConfigurationError("--investigation-id is required.")
+            handoffs = cstore.list_handoffs(args.investigation_id)
+            out = {"handoffs": [h.__dict__ for h in handoffs]}
+            text = "\n".join(
+                f"{h.handoff_id}  task={h.task_id}  {h.source_agent_id} -> {h.target_role}  [{h.status}]"
+                for h in handoffs
+            ) or "no handoffs found"
+            _emit(out, args.json, text)
+            return 0
+        elif args.handoff_action == "show":
+            h = cstore.get_handoff(args.handoff_id)
+            if not h:
+                print(f"error: handoff not found: {args.handoff_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            out = h.__dict__
+            text = (
+                f"Handoff {h.handoff_id} [{h.status}]\n"
+                f"Investigation: {h.investigation_id}\n"
+                f"Task: {h.task_id}\n"
+                f"Transfer: {h.source_agent_id} -> {h.target_role} (target agent: {h.target_agent_id or 'any'})\n"
+                f"Reason: {h.reason or 'unspecified'}\n"
+                f"Context: {h.context_summary or 'none'}"
+            )
+            _emit(out, args.json, text)
+            return 0
+    return 0
+
+
+def _cmd_session(args) -> int:
+    from money_trail.coordination.orchestrator import MultiAgentOrchestrator
+    from money_trail.coordination.store import CoordinationStore
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        cstore = CoordinationStore(conn)
+        if args.session_action == "list":
+            if not args.investigation_id:
+                raise ConfigurationError("--investigation-id is required.")
+            rows = conn.graph.ro_query(
+                "MATCH (s:AgentSession {investigation_id: $inv_id}) RETURN s.session_id, s.status, s.started_at, s.completed_at ORDER BY s.started_at DESC",
+                {"inv_id": args.investigation_id},
+            ).result_set
+            sessions = [{"session_id": r[0], "status": r[1], "started_at": r[2], "completed_at": r[3]} for r in rows]
+            out = {"sessions": sessions}
+            text = "\n".join(f"{s['session_id']}  status={s['status']:<11} started={s['started_at']}" for s in sessions) or "no sessions"
+            _emit(out, args.json, text)
+            return 0
+        elif args.session_action == "show":
+            s = cstore.get_session(args.session_id)
+            if not s:
+                print(f"error: session not found: {args.session_id}", file=sys.stderr)
+                return EXIT_NOT_FOUND
+            rec = cstore.recover_session(args.session_id)
+            out = {
+                "session": s.__dict__,
+                "tasks_count": len(rec["tasks"]),
+                "ready_tasks": [t.task_id for t in rec["ready_tasks"]],
+                "unresolved_tasks": [t.task_id for t in rec["unresolved_tasks"]],
+                "memories_count": len(rec["memory_ids"]),
+                "handoffs_count": len(rec["handoffs"]),
+            }
+            text = (
+                f"Session {s.session_id} [{s.status}]\n"
+                f"Investigation: {s.investigation_id}\n"
+                f"Tasks: {len(rec['tasks'])} (ready: {len(rec['ready_tasks'])}, unresolved: {len(rec['unresolved_tasks'])})\n"
+                f"Memories: {len(rec['memory_ids'])}, Handoffs: {len(rec['handoffs'])}"
+            )
+            _emit(out, args.json, text)
+            return 0
+        elif args.session_action == "resume":
+            orch = MultiAgentOrchestrator(conn)
+            res = orch.resume_investigation(args.session_id, question=args.question)
+            _emit(res, args.json, f"Resumed session {args.session_id}: status={res['status']}, executed {res['resumed_steps']} steps.")
+            return 0 if res["status"] == "completed" else EXIT_INCOMPLETE
+    return 0
+
+
+def _cmd_audit(args) -> int:
+    from money_trail.coordination.roles.auditor import EvidenceAuditorRole
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    with FalkorDBConnection(settings) as conn:
+        auditor = EvidenceAuditorRole(conn)
+        rows = conn.graph.ro_query(
+            "MATCH (i:Investigation {investigation_id: $inv_id})-[:HAS_FINDING]->(f:Finding) RETURN f.finding_id",
+            {"inv_id": args.investigation_id},
+        ).result_set
+        fids = [r[0] for r in rows]
+        res = [auditor.audit_finding(fid) for fid in fids]
+        verified_count = sum(1 for r in res if r["verified"])
+        out = {
+            "investigation_id": args.investigation_id,
+            "total_findings": len(res),
+            "verified_count": verified_count,
+            "rejected_count": len(res) - verified_count,
+            "findings": res,
+        }
+        text = f"Audit of investigation {args.investigation_id}:\n" + (
+            "\n".join(
+                f"  Finding {r['finding_id']}: {'VERIFIED' if r['verified'] else 'REJECTED'} - {r['reason']}"
+                for r in res
+            )
+            if res
+            else "  No findings recorded for this investigation."
+        )
+        _emit(out, args.json, text)
+        return 0 if verified_count == len(res) else 1
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="money-trail", description="Money Trail data and investigation commands.")
     sub = p.add_subparsers(dest="command", required=True)
@@ -544,6 +847,70 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ai.add_argument("--max-tool-calls", type=int)
     ai.add_argument("--max-duration-seconds", type=float)
     ai.set_defaults(fn=_cmd_agent)
+
+    # Phase 5: Schema Migration and Version
+    mig = sub.add_parser("migrate", parents=[env], help="Run additive schema migration to the latest version.")
+    mig.set_defaults(fn=_cmd_migrate)
+
+    sv = sub.add_parser("schema-version", parents=[env], help="Print currently applied schema version and migration history.")
+    sv.set_defaults(fn=_cmd_schema_version)
+
+    # Phase 5: Persistent Graph Memory
+    mem = sub.add_parser("memory", parents=[env], help="Inspect persistent graph memory, provenance, history, and supersession.")
+    mems = mem.add_subparsers(dest="memory_action", required=True)
+    ml = mems.add_parser("list", parents=[after], help="List memories with scope isolation.")
+    ml.add_argument("--scope", choices=("investigation", "dataset"), required=True)
+    ml.add_argument("--dataset")
+    ml.add_argument("--investigation-id")
+    ml.add_argument("--type", choices=("episodic", "semantic"))
+    ml.add_argument("--status", choices=("active", "superseded", "invalidated", "revalidation_needed"), default="active")
+    ml.add_argument("--limit", type=int)
+    ms = mems.add_parser("show", parents=[after], help="Show details of a specific memory.")
+    ms.add_argument("memory_id")
+    mp = mems.add_parser("provenance", parents=[after], help="Inspect grounding evidence chain for a memory.")
+    mp.add_argument("memory_id")
+    mh = mems.add_parser("history", parents=[after], help="Inspect supersession and contradiction history.")
+    mh.add_argument("memory_id")
+    mem.set_defaults(fn=_cmd_memory)
+
+    # Phase 5: Task Coordination
+    tsk = sub.add_parser("task", parents=[env], help="Inspect durable agent tasks, dependencies, and execution state.")
+    tsks = tsk.add_subparsers(dest="task_action", required=True)
+    tl = tsks.add_parser("list", parents=[after], help="List tasks in an investigation.")
+    tl.add_argument("--investigation-id", required=True)
+    tl.add_argument("--status")
+    tl.add_argument("--role")
+    ts = tsks.add_parser("show", parents=[after], help="Show task details.")
+    ts.add_argument("task_id")
+    tb = tsks.add_parser("blockers", parents=[after], help="View task dependency blockers.")
+    tb.add_argument("task_id")
+    tsk.set_defaults(fn=_cmd_task)
+
+    # Phase 5: Agent Handoffs
+    hnd = sub.add_parser("handoff", parents=[env], help="Inspect multi-agent handoffs between specialized roles.")
+    hnds = hnd.add_subparsers(dest="handoff_action", required=True)
+    hl = hnds.add_parser("list", parents=[after], help="List handoffs in an investigation.")
+    hl.add_argument("--investigation-id", required=True)
+    hs = hnds.add_parser("show", parents=[after], help="Show handoff details.")
+    hs.add_argument("handoff_id")
+    hnd.set_defaults(fn=_cmd_handoff)
+
+    # Phase 5: Persistent Sessions and Resumption
+    ses = sub.add_parser("session", parents=[env], help="Manage and inspect persistent investigation sessions.")
+    sess = ses.add_subparsers(dest="session_action", required=True)
+    sl = sess.add_parser("list", parents=[after], help="List sessions for an investigation.")
+    sl.add_argument("--investigation-id", required=True)
+    ss = sess.add_parser("show", parents=[after], help="Show session details.")
+    ss.add_argument("session_id")
+    sr = sess.add_parser("resume", parents=[after], help="Resume an interrupted investigation session from FalkorDB.")
+    sr.add_argument("session_id")
+    sr.add_argument("--question")
+    ses.set_defaults(fn=_cmd_session)
+
+    # Phase 5: Evidence Audit
+    aud = sub.add_parser("audit", parents=[env], help="Audit agent participation and evidence grounding for an investigation.")
+    aud.add_argument("investigation_id")
+    aud.set_defaults(fn=_cmd_audit)
 
     args = p.parse_args(argv)
     try:

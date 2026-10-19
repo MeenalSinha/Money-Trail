@@ -12,7 +12,7 @@ from typing import Any, Mapping, Optional, Tuple
 
 from money_trail.exceptions import ValidationError
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,14 @@ def _id(name: str, what: str) -> PropertySpec:
 
 FINDING_KINDS = ("observation", "interpretation", "hypothesis")
 INVESTIGATION_STATUSES = ("open", "in_progress", "closed")
+SESSION_STATUSES = ("active", "completed", "interrupted", "failed")
+MEMORY_TYPES = ("episodic", "semantic")
+MEMORY_SCOPES = ("investigation", "dataset")
+MEMORY_STATUSES = ("active", "superseded", "invalidated", "revalidation_needed")
+TASK_STATUSES = ("pending", "ready", "running", "completed", "blocked", "failed", "cancelled")
+AGENT_ROLES = ("coordinator", "investigator", "auditor", "memory_curator")
+HANDOFF_STATUSES = ("initiated", "transferred", "accepted", "completed", "failed", "rejected")
+MIGRATION_STATUSES = ("completed", "failed", "pending")
 
 NODES: Tuple[NodeSpec, ...] = (
     NodeSpec(
@@ -137,11 +145,98 @@ NODES: Tuple[NodeSpec, ...] = (
     ),
     NodeSpec(
         "Agent", "agent_id",
-        "An AI component that may take part in investigations. Agents themselves are not implemented in Phase 1.",
+        "An AI component that may take part in investigations.",
         (
             _id("agent_id", "agent"),
             PropertySpec("role", str, required=True, description="Functional role of the agent."),
             PropertySpec("name", str, description="Display name; never used as identity."),
+        ),
+    ),
+    NodeSpec(
+        "AgentSession", "session_id",
+        "Persistent investigation session tracking individual runs and workflows across processes.",
+        (
+            _id("session_id", "agent session"),
+            PropertySpec("investigation_id", str, required=True, indexed=True, description="Associated investigation."),
+            PropertySpec("status", str, required=True, allowed=SESSION_STATUSES, indexed=True, description="Session state."),
+            PropertySpec("started_at", int, required=True, description="Epoch milliseconds UTC."),
+            PropertySpec("dataset", str, description="Dataset scope."),
+            PropertySpec("updated_at", int, description="Epoch milliseconds UTC."),
+            PropertySpec("completed_at", int, description="Epoch milliseconds UTC."),
+            PropertySpec("metadata_json", str, description="Optional serialized session metadata."),
+        ),
+    ),
+    NodeSpec(
+        "Memory", "memory_id",
+        "Scoped, provenance-aware persistent memory (episodic or semantic) grounded in graph evidence.",
+        (
+            _id("memory_id", "memory record"),
+            PropertySpec("memory_type", str, required=True, allowed=MEMORY_TYPES, indexed=True,
+                         description="episodic (event record) or semantic (verified fact/knowledge)."),
+            PropertySpec("scope", str, required=True, allowed=MEMORY_SCOPES, indexed=True,
+                         description="investigation or dataset scope."),
+            PropertySpec("statement", str, required=True, description="The memory statement or bounded claim."),
+            PropertySpec("status", str, required=True, allowed=MEMORY_STATUSES, indexed=True,
+                         description="Lifecycle status."),
+            PropertySpec("created_at", int, required=True, description="Epoch milliseconds UTC."),
+            PropertySpec("dataset", str, indexed=True, description="Dataset scope if applicable."),
+            PropertySpec("investigation_id", str, indexed=True, description="Investigation scope if applicable."),
+            PropertySpec("updated_at", int, description="Epoch milliseconds UTC."),
+            PropertySpec("valid_from", int, description="Temporal validity start, epoch milliseconds UTC."),
+            PropertySpec("valid_to", int, description="Temporal validity expiry, epoch milliseconds UTC."),
+            PropertySpec("provenance_tool", str, description="Producing tool or detector."),
+            PropertySpec("rule_fingerprint", str, description="Rule set fingerprint when created."),
+            PropertySpec("confidence", float, minimum=0.0, maximum=1.0, description="Optional confidence."),
+        ),
+    ),
+    NodeSpec(
+        "AgentTask", "task_id",
+        "A durable coordination task node with dependencies, state machine, and ownership.",
+        (
+            _id("task_id", "agent task"),
+            PropertySpec("task_type", str, required=True, indexed=True, description="Task category/type."),
+            PropertySpec("status", str, required=True, allowed=TASK_STATUSES, indexed=True, description="Task lifecycle status."),
+            PropertySpec("investigation_id", str, required=True, indexed=True, description="Associated investigation."),
+            PropertySpec("created_at", int, required=True, description="Epoch milliseconds UTC."),
+            PropertySpec("session_id", str, description="Session in which the task was created or run."),
+            PropertySpec("assigned_role", str, allowed=AGENT_ROLES, description="Role assigned to this task."),
+            PropertySpec("assigned_agent_id", str, description="Specific agent instance assigned."),
+            PropertySpec("attempt_count", int, minimum=0, description="Number of execution attempts."),
+            PropertySpec("idempotency_key", str, indexed=True, description="Deduplication key."),
+            PropertySpec("updated_at", int, description="Epoch milliseconds UTC."),
+            PropertySpec("completed_at", int, description="Epoch milliseconds UTC."),
+            PropertySpec("result_summary", str, description="Bounded summary of the outcome."),
+            PropertySpec("error_detail", str, description="Bounded error details if failed/blocked."),
+        ),
+    ),
+    NodeSpec(
+        "AgentHandoff", "handoff_id",
+        "Auditable transfer record of tasks and context between specialized agent roles.",
+        (
+            _id("handoff_id", "agent handoff"),
+            PropertySpec("investigation_id", str, required=True, indexed=True, description="Associated investigation."),
+            PropertySpec("task_id", str, required=True, description="Task being transferred."),
+            PropertySpec("source_agent_id", str, required=True, description="Originating agent identity."),
+            PropertySpec("target_role", str, required=True, allowed=AGENT_ROLES, description="Target role."),
+            PropertySpec("status", str, required=True, allowed=HANDOFF_STATUSES, indexed=True, description="Handoff status."),
+            PropertySpec("created_at", int, required=True, description="Epoch milliseconds UTC."),
+            PropertySpec("target_agent_id", str, description="Specific receiving agent if known."),
+            PropertySpec("reason", str, description="Reason for transfer."),
+            PropertySpec("context_summary", str, description="Bounded summary of transferred context."),
+            PropertySpec("idempotency_key", str, indexed=True, description="Deterministic deduplication key."),
+            PropertySpec("updated_at", int, description="Epoch milliseconds UTC."),
+            PropertySpec("completed_at", int, description="Epoch milliseconds UTC."),
+        ),
+    ),
+    NodeSpec(
+        "SchemaMigration", "migration_id",
+        "Durable schema migration record kept in the graph.",
+        (
+            _id("migration_id", "schema migration"),
+            PropertySpec("version", int, required=True, minimum=1, indexed=True, description="Target schema version."),
+            PropertySpec("applied_at", int, required=True, description="Epoch milliseconds UTC."),
+            PropertySpec("description", str, required=True, description="Migration summary."),
+            PropertySpec("status", str, required=True, allowed=MIGRATION_STATUSES, description="Migration status."),
         ),
     ),
 )
@@ -160,6 +255,33 @@ RELATIONSHIPS: Tuple[RelSpec, ...] = (
     RelSpec("AUTHORED", "Agent", "Finding",
             "The agent produced the finding, so provenance survives across agents.",
             (PropertySpec("authored_at", int, description="Epoch milliseconds UTC."),), core=False),
+    # Phase 5 Persistent Memory & Coordination Relationships (core=False)
+    RelSpec("HAS_SESSION", "Investigation", "AgentSession",
+            "The investigation has an execution session.", core=False),
+    RelSpec("RECORDED", "AgentSession", "Memory",
+            "The session recorded the memory.", core=False),
+    RelSpec("PARTICIPATED_IN", "Agent", "AgentSession",
+            "The agent participated in the session.", core=False),
+    RelSpec("GROUNDED_BY", "Memory", "Evidence",
+            "The memory claim is grounded by verified evidence.", core=False),
+    RelSpec("SUPERSEDES", "Memory", "Memory",
+            "A newer memory supersedes an older/corrected memory.", core=False),
+    RelSpec("CONTRADICTS", "Memory", "Memory",
+            "A memory contradicts another memory.", core=False),
+    RelSpec("OWNS_TASK", "Agent", "AgentTask",
+            "The agent owns execution of the task.", core=False),
+    RelSpec("BELONGS_TO", "AgentTask", "Investigation",
+            "The task belongs to the investigation.", core=False),
+    RelSpec("DEPENDS_ON", "AgentTask", "AgentTask",
+            "Task depends on another task being completed first.", core=False),
+    RelSpec("PRODUCED_FINDING", "AgentTask", "Finding",
+            "The task execution produced the finding.", core=False),
+    RelSpec("INITIATED_HANDOFF", "Agent", "AgentHandoff",
+            "The agent initiated the handoff.", core=False),
+    RelSpec("TRANSFERS_TASK", "AgentHandoff", "AgentTask",
+            "The handoff transfers the task.", core=False),
+    RelSpec("HANDOFF_IN", "AgentHandoff", "Investigation",
+            "The handoff occurred within the investigation.", core=False),
 )
 
 NODE_BY_LABEL: Mapping[str, NodeSpec] = {n.label: n for n in NODES}
