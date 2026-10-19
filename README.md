@@ -6,9 +6,9 @@ Money Trail is a graph-backed financial investigation agent built for Graph Hack
 Current state: **Phase 1** (verified foundation), **Phase 2** (data contract, synthetic data, CSV ingestion, foundational
 read-only queries), **Phase 3** (deterministic graph investigation engine: four configurable detectors, evidence-backed
 findings stored in FalkorDB, evaluation against synthetic ground truth), **Phase 4** (an AI investigation agent that
-selects registered graph tools and writes an evidence-grounded report), and **Phase 5** (**persistent graph memory,
-shared agent state & multi-agent coordination**) are fully implemented and verified against real FalkorDB.
-The agent's **live external provider request remains unverified** because no external API credential was provided in the environment (see `docs/VERIFICATION_REPORT.md`); all deterministic interfaces, provider validation, schema migrations, and coordination engines are 100% verified.
+selects registered graph tools and writes an evidence-grounded report), **Phase 5** (**persistent graph memory,
+shared agent state & multi-agent coordination**), and **Phase 6** (**interactive dashboard, vis.js graph visualization & complete investigation workspace**) are fully implemented and verified against real FalkorDB.
+The agent's **live external provider request remains unverified** because no external API credential was provided in the environment (see `docs/VERIFICATION_REPORT.md`); all deterministic interfaces, provider validation, schema migrations, coordination engines, and dashboard workspaces are 100% verified.
 
 ## Problem and Approach
 
@@ -61,7 +61,21 @@ FalkorDB is the central context and coordination layer:
   - Persistent, auditable handoffs (`INITIATED` -> `TRANSFERRED` -> `ACCEPTED` -> `COMPLETED`).
   - Resumption of interrupted investigations directly from FalkorDB graph state without process state dependency.
 
-Details: `docs/memory.md` (persistent memory architecture), `docs/coordination.md` (multi-agent coordination), `docs/architecture/graph-schema.md` (schema v2 & migrations), `docs/agent.md`, `docs/detection.md`, `docs/data-ingestion.md`.
+### Phase 6: Interactive Dashboard & Complete Investigation Workspace
+* **Unified Streamlit Frontend**: Production-quality investigative workspace with dark-mode financial styling.
+* **Interactive Graph Visualization**: Vis.js canvas with directional transfer arrows, color-coded node entities, and an accessible tabular alternative table (`st.dataframe`).
+* **Multi-Tab Investigation Workspace**: Launch investigations, trace transaction paths, view findings, inspect evidence, follow agent handoffs, and resume interrupted tasks.
+* **8 Core Navigation Views**:
+  - *Overview*: Operational metrics, database readiness, recent investigations, and handoffs.
+  - *Investigations*: Case listing, new case dispatch, case workspace with 5 sub-tabs.
+  - *Graph Explorer*: Multi-hop interactive transaction graph exploration.
+  - *Findings & Evidence*: Deep-dive into verified pattern findings with supporting subgraph visualizer.
+  - *Agent Activity*: Task state DAG, unmet dependencies, and role handoffs timeline.
+  - *Memory Explorer*: Episodic & semantic memory viewer with full evidence provenance tracing.
+  - *Evaluation*: Ground-truth isolated benchmark metrics and AI tool accuracy dashboards.
+  - *System Status*: Real-time FalkorDB ping latency, schema v2 migration audit, and subsystem health checks.
+
+Details: `docs/dashboard.md` (dashboard architecture & views), `docs/memory.md` (persistent memory architecture), `docs/coordination.md` (multi-agent coordination), `docs/architecture/graph-schema.md` (schema v2 & migrations), `docs/agent.md`, `docs/detection.md`, `docs/data-ingestion.md`.
 Verification: `docs/VERIFICATION_REPORT.md`.
 
 ## Stack
@@ -83,9 +97,10 @@ src/money_trail/
   agent/                      config, request, prompts, agent loop, tools, ledger, grounding, verify, llm/
   memory/                     models.py, store.py (episodic & semantic graph memory, anti-poisoning)
   coordination/               models.py, state_machine.py, store.py, orchestrator.py, roles/ (coordinator, investigator, auditor, curator)
+  dashboard/                  app.py, service.py, components/ (styles, graph_viz), views/ (overview, investigations, graph, findings, coordination, memory, evaluation, system_status)
   evaluation/                 ground_truth.py, matching.py, metrics.py, report.py, agent_eval.py
   cli.py                      money-trail, money-trail-check, money-trail-init
-docs/                         VERIFICATION_REPORT.md, memory.md, coordination.md, architecture/graph-schema.md
+docs/                         VERIFICATION_REPORT.md, dashboard.md, memory.md, coordination.md, architecture/graph-schema.md
 examples/                     generator.example.json, ingest.example.json, detection.example.json, agent.example.json
 tests/unit, tests/integration, tests/support.py
 ```

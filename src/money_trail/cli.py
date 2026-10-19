@@ -729,6 +729,25 @@ def _cmd_audit(args) -> int:
         return 0 if verified_count == len(res) else 1
 
 
+def _cmd_dashboard(args) -> int:
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    app_path = Path(__file__).parent / "dashboard" / "app.py"
+    cmd = [sys.executable, "-m", "streamlit", "run", str(app_path)]
+    if getattr(args, "port", None):
+        cmd.extend(["--server.port", str(args.port)])
+    if getattr(args, "host", None):
+        cmd.extend(["--server.address", str(args.host)])
+    if getattr(args, "headless", False):
+        cmd.append("--server.headless=true")
+    try:
+        return subprocess.call(cmd)
+    except KeyboardInterrupt:
+        return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="money-trail", description="Money Trail data and investigation commands.")
     sub = p.add_subparsers(dest="command", required=True)
@@ -911,6 +930,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     aud = sub.add_parser("audit", parents=[env], help="Audit agent participation and evidence grounding for an investigation.")
     aud.add_argument("investigation_id")
     aud.set_defaults(fn=_cmd_audit)
+
+    # Phase 6: Interactive Dashboard
+    dash = sub.add_parser("dashboard", parents=[env], help="Launch the Money Trail interactive Streamlit dashboard.")
+    dash.add_argument("--port", type=int, default=8501, help="Port to bind the Streamlit server.")
+    dash.add_argument("--host", default="localhost", help="Host address to bind.")
+    dash.add_argument("--headless", action="store_true", help="Run in headless mode (no browser popup).")
+    dash.set_defaults(fn=_cmd_dashboard)
 
     args = p.parse_args(argv)
     try:

@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "money-trail"
-version = "0.4.0"
-description = "Money Trail: graph-backed financial investigation agent (Phase 4: AI investigation agent)"
+version = "0.6.0"
+description = "Money Trail: graph-backed financial investigation agent (Phase 6: Interactive Dashboard & Workspace)"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "falkordb==1.8.0",
     "anthropic==1.11.0",
     "python-dotenv>=1.0,<2.0",
+    "streamlit>=1.30.0",
 ]
 
 [project.optional-dependencies]
