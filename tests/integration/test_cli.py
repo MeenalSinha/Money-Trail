@@ -52,3 +52,26 @@ def test_cli_workflow(env_file, make_dataset, capsys, conn):
     assert main(["query", "evidence", "nope", *env, "--limit", "5"]) == 3
     secret = json.dumps(report)
     assert "password" not in secret.lower()
+
+
+def test_cli_demo_command(env_file, capsys):
+    env = ["--env-file", str(env_file)]
+    rc = main(["demo", *env, "--json"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    lines = captured.out.strip().split("\n")
+    json_start = -1
+    for idx, l in enumerate(lines):
+        if l.strip().startswith("{"):
+            json_start = idx
+            break
+    assert json_start != -1
+    payload = json.loads("\n".join(lines[json_start:]))
+    assert payload["overall"]["status"] == "PASSED"
+    assert payload["step_generate"]["status"] == "ok"
+    assert payload["step_validate"]["status"] == "ok"
+    assert payload["step_ingest"]["status"] == "ok"
+    assert payload["step_investigate"]["status"] == "ok"
+    assert payload["step_findings"]["status"] == "ok"
+    assert payload["step_provenance"]["status"] == "ok"
+

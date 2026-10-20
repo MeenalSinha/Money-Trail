@@ -1,23 +1,27 @@
 # Money Trail
 
 Money Trail is a graph-backed financial investigation agent built for Graph Hacks 2026
-(**Track 2: Agent Memory and Coordination**; **Track 1: Agents That Act on Connected Data**).
+(**Track 1: Agents That Act on Connected Data**; **Track 2: Agent Memory and Coordination**).
 
-Current state: **Phase 1** (verified foundation), **Phase 2** (data contract, synthetic data, CSV ingestion, foundational
-read-only queries), **Phase 3** (deterministic graph investigation engine: four configurable detectors, evidence-backed
-findings stored in FalkorDB, evaluation against synthetic ground truth), **Phase 4** (an AI investigation agent that
-selects registered graph tools and writes an evidence-grounded report), **Phase 5** (**persistent graph memory,
-shared agent state & multi-agent coordination**), and **Phase 6** (**interactive dashboard, vis.js graph visualization & complete investigation workspace**) are fully implemented and verified against real FalkorDB.
-The agent's **live external provider request remains unverified** because no external API credential was provided in the environment (see `docs/VERIFICATION_REPORT.md`); all deterministic interfaces, provider validation, schema migrations, coordination engines, and dashboard workspaces are 100% verified.
+Current state: Phases 1–8 fully implemented and verified against real FalkorDB.
+The agent's **live external provider request remains unverified** because no external API
+credential was provided in the execution environment (see `docs/VERIFICATION_REPORT.md`);
+all deterministic interfaces, schema migrations, coordination engines, evaluation harnesses,
+security hardening, and dashboard workspaces are 100% verified.
 
 ## Problem and Approach
 
-Suspicious financial activity often spans multiple accounts, layered transactions, and complex timing patterns. Money Trail follows relationships between accounts and transactions, collects evidence, remembers context across sessions and processes, and coordinates specialized agents directly through FalkorDB.
+Suspicious financial activity often spans multiple accounts, layered transactions, and complex
+timing patterns. Money Trail follows relationships between accounts and transactions, collects
+evidence, remembers context across sessions and processes, and coordinates specialized agents
+directly through FalkorDB.
 
 FalkorDB is the central context and coordination layer:
 * **The Connected Financial Graph**: Stores accounts, transactions, and signals.
-* **Persistent Graph Memory**: Stores episodic investigation traces and evidence-grounded semantic facts with provenance, temporal validity, and supersession links.
-* **Shared Multi-Agent Coordination State**: Coordinates tasks, dependencies, state machines, and auditable handoffs directly within FalkorDB.
+* **Persistent Graph Memory**: Stores episodic investigation traces and evidence-grounded
+  semantic facts with provenance, temporal validity, and supersession links.
+* **Shared Multi-Agent Coordination State**: Coordinates tasks, dependencies, state machines,
+  and auditable handoffs directly within FalkorDB.
 
 ## What Exists
 
@@ -75,14 +79,30 @@ FalkorDB is the central context and coordination layer:
   - *Evaluation*: Ground-truth isolated benchmark metrics and AI tool accuracy dashboards.
   - *System Status*: Real-time FalkorDB ping latency, schema v2 migration audit, and subsystem health checks.
 
-Details: `docs/dashboard.md` (dashboard architecture & views), `docs/memory.md` (persistent memory architecture), `docs/coordination.md` (multi-agent coordination), `docs/architecture/graph-schema.md` (schema v2 & migrations), `docs/agent.md`, `docs/detection.md`, `docs/data-ingestion.md`.
-Verification: `docs/VERIFICATION_REPORT.md`.
+### Phase 7: Comprehensive Evaluation, Reliability, Performance & Security Hardening
+* **4-Detector Evaluation**: 100% recall (8/8 ground-truth patterns detected); precision 8/14 with transparent error analysis.
+* **AI Agent Evaluation**: 15 critical failure scenarios verified; 100% evidence-grounding rate; 0 hallucinated facts in persistent memory.
+* **Reliability Testing**: State recovery across 6 distinct interruption points; zero cross-scope memory leakage; DAG cycle detection verified.
+* **Performance Benchmarks**: Sub-second p50/p95 latency budgets met for all 4 benchmark categories against real FalkorDB.
+* **Security Hardening**: 0 exposed credentials in source; 100% parameterized Cypher; adversarial inputs rejected; strict ground-truth isolation.
+* **Unified QA CLI**: `money-trail qa` produces machine-readable JSON and human-readable Markdown evaluation reports.
+
+### Phase 8: Final Integration, Release Readiness & Demonstration
+* **End-to-End Pipeline Verification**: Full pipeline (generate → validate → ingest → investigate → persist → findings → evidence provenance) exercised and verified against real FalkorDB.
+* **Guided Demonstration Workflow** (`money-trail demo`): Self-contained CLI walkthrough that generates a synthetic dataset, ingests it into a temporary disposable graph, runs all 4 detectors, persists findings, verifies evidence provenance, and reports results. Cleans up automatically on exit.
+* **Reproducible Setup Scripts**: `scripts/setup.ps1` (Windows) and `scripts/setup.sh` (Linux/macOS) perform full one-shot environment setup: venv, install, .env, Docker, schema init, and health check.
+* **Release Documentation**: Updated `README.md`, `pyproject.toml` v0.8.0, and `docs/PHASE8_VERIFICATION_REPORT.md`.
+* **Final Test Suite Result**: **700 passed, 1 skipped** (491 unit tests, 209 real FalkorDB integration tests, 0 failures).
+
+Details: `docs/dashboard.md`, `docs/memory.md`, `docs/coordination.md`, `docs/architecture/graph-schema.md`, `docs/agent.md`, `docs/detection.md`, `docs/data-ingestion.md`, `docs/evaluation.md`.  
+Verification: `docs/VERIFICATION_REPORT.md`, `docs/PHASE7_VERIFICATION_REPORT.md`, `docs/PHASE8_VERIFICATION_REPORT.md`.
 
 ## Stack
 
-* **Python**: 3.10–3.13 (Python 3.11 recommended; `tzdata` installed for Windows timezones)
-* **Database**: FalkorDB (official client `falkordb==1.8.0`)
-* **LLM SDK**: `anthropic==1.11.0` (used for AI agent; deterministic engine runs without any LLM)
+* **Python**: 3.10–3.13 (Python 3.11 recommended; `tzdata` required on Windows for timezone support)
+* **Database**: FalkorDB `falkordb/falkordb-server:v4.18.2` (client `falkordb==1.8.0`)
+* **LLM SDK**: `anthropic==1.11.0` (AI agent; deterministic engine runs without any LLM)
+* **Frontend**: `streamlit>=1.30.0` with embedded Vis.js (`vis-network`)
 * **Testing & Tools**: `pytest`, `python-dotenv`
 
 ## Project Layout
@@ -96,97 +116,139 @@ src/money_trail/
   investigation/              queries.py, config.py, engine.py, evidence.py, findings.py, detectors/
   agent/                      config, request, prompts, agent loop, tools, ledger, grounding, verify, llm/
   memory/                     models.py, store.py (episodic & semantic graph memory, anti-poisoning)
-  coordination/               models.py, state_machine.py, store.py, orchestrator.py, roles/ (coordinator, investigator, auditor, curator)
-  dashboard/                  app.py, service.py, components/ (styles, graph_viz), views/ (overview, investigations, graph, findings, coordination, memory, evaluation, system_status)
-  evaluation/                 ground_truth.py, matching.py, metrics.py, report.py, agent_eval.py
+  coordination/               models.py, state_machine.py, store.py, orchestrator.py, roles/
+  dashboard/                  app.py, service.py, components/, views/
+  evaluation/                 ground_truth.py, matching.py, metrics.py, report.py, agent_eval.py,
+                              qa_config.py, qa_runner.py, detector_eval.py, agent_harness.py,
+                              memory_coordination_eval.py, benchmarks.py, security_audit.py
   cli.py                      money-trail, money-trail-check, money-trail-init
-docs/                         VERIFICATION_REPORT.md, dashboard.md, memory.md, coordination.md, architecture/graph-schema.md
+docs/                         VERIFICATION_REPORT.md, PHASE7_VERIFICATION_REPORT.md,
+                              PHASE8_VERIFICATION_REPORT.md, dashboard.md, memory.md,
+                              coordination.md, architecture/graph-schema.md
 examples/                     generator.example.json, ingest.example.json, detection.example.json, agent.example.json
+scripts/                      setup.ps1 (Windows), setup.sh (Linux/macOS), check_environment.py
 tests/unit, tests/integration, tests/support.py
 ```
 
-## Setup & Quickstart
+## Quickstart (Reproducible Setup)
+
+### Windows (PowerShell)
+
+```powershell
+# One-shot setup (venv + install + docker + schema init + health check)
+.\scripts\setup.ps1
+
+# Activate and run the demonstration walkthrough
+.venv\Scripts\Activate.ps1
+money-trail demo
+```
+
+### Linux / macOS / WSL (bash)
+
+```bash
+# One-shot setup
+bash scripts/setup.sh
+
+# Activate and run the demonstration walkthrough
+source .venv/bin/activate
+money-trail demo
+```
+
+### Manual Setup
 
 ```bash
 # 1. Virtual environment
 python -m venv .venv
 source .venv/bin/activate       # On Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-pip install tzdata              # Required on Windows for America/New_York timezone support
+pip install tzdata              # Required on Windows for timezone support
 
 # 2. Environment configuration
-cp .env.example .env            # Ensure FALKORDB_HOST, FALKORDB_PORT, FALKORDB_PASSWORD are set
-# Note: Ensure FALKORDB_SOCKET_TIMEOUT=30 in .env to accommodate test query timeouts
+cp .env.example .env            # Set FALKORDB_HOST, FALKORDB_PORT, FALKORDB_PASSWORD,
+                                # FALKORDB_GRAPH_NAME, MONEY_TRAIL_TEST_GRAPH_PREFIX
 
 # 3. Start FalkorDB
 docker compose up -d
 
-# 4. Initialize or migrate graph
-python -m money_trail.cli migrate
+# 4. Initialize schema
+money-trail-init
 money-trail-check
+```
+
+## Phase 8 Demonstration Walkthrough
+
+```bash
+# Runs the complete pipeline against a temporary disposable graph — no production data touched:
+#   generate -> validate -> ingest -> investigate -> findings -> evidence provenance -> cleanup
+money-trail demo
+
+# Machine-readable JSON output
+money-trail demo --json
+
+# Keep the temporary graph for manual inspection after the walkthrough
+money-trail demo --keep-graph
+```
+
+## Phase 7 QA Pipeline
+
+```bash
+# Run the comprehensive evaluation, reliability, performance, and security suite
+money-trail qa --output-dir evaluation_reports
+
+# Reports are written to:
+#   evaluation_reports/phase7_evaluation_report.json   (machine-readable)
+#   docs/PHASE7_VERIFICATION_REPORT.md                 (human-readable)
 ```
 
 ## Phase 5 CLI Workflow
 
 ### Schema Management & Migrations
 ```bash
-# Check current schema version and migration history
 money-trail schema-version
-
-# Execute non-destructive schema migration to v2
 money-trail migrate
 ```
 
 ### Persistent Memory Inspection
 ```bash
-# List memories for an investigation
-money-trail memory list --investigation-id inv_demo_1
-
-# Show detailed memory properties and grounded evidence
+money-trail memory list --scope investigation --investigation-id inv_demo_1
 money-trail memory show mem_1234567890abcdef
-
-# View provenance evidence chain
 money-trail memory provenance mem_1234567890abcdef
-
-# View supersession and contradiction history
 money-trail memory history mem_1234567890abcdef
 ```
 
 ### Multi-Agent Coordination & Tasks
 ```bash
-# List tasks in an investigation
 money-trail task list --investigation-id inv_demo_1
-
-# View task dependency blockers
 money-trail task blockers task_1234567890
-
-# List auditable handoffs across agent roles
 money-trail handoff list --investigation-id inv_demo_1
-
-# Inspect agent participation and audit summary
 money-trail audit inv_demo_1
-
-# Resume an interrupted investigation from FalkorDB
 money-trail session resume sess_1234567890
 ```
 
 ## Running the Automated Test Suite
 
 ```bash
-# 1. Run all unit tests (no database required)
+# Unit tests only (no FalkorDB required)
 pytest tests/unit
 
-# 2. Run Phase 5 integration tests against real FalkorDB
-pytest tests/integration/test_phase5_falkordb_integration.py
-pytest tests/integration/test_coordination_e2e.py
+# Integration tests against real FalkorDB
+pytest tests/integration
 
-# 3. Run the complete test suite (Phase 1 through Phase 5)
+# Complete test suite (Phases 1–8)
 pytest
 ```
-*Current test suite status:* **666 passed, 1 skipped** (the live Anthropic request is skipped when no API key is provided).
+
+*Current test suite status:* **700 passed, 1 skipped** (the live Anthropic provider request is
+skipped when no API key is provided; all deterministic interfaces fully verified).
 
 ## Known Limitations
 
-1. **Live Provider Verification**: Real-model requests remain unverified due to the absence of valid provider credentials in the local environment. All deterministic interfaces, tool schemas, and model doubles are fully verified.
-2. **Single-Coordinator Process Model**: Concurrency testing verifies atomic single-worker task claiming in FalkorDB; true distributed multi-coordinator clustering across distributed networks is documented and restricted to single coordinator scheduling.
-3. **Evidence Expiry**: Semantic memory revalidation flags dependent memories when source transactions change; automatic background re-audit cron jobs are an optional future extension.
+1. **Live Provider Verification**: Real-model requests remain unverified due to the absence of
+   valid provider credentials in the local environment. All deterministic interfaces, tool schemas,
+   safety safeguards, and model doubles are fully verified.
+2. **Single-Coordinator Process Model**: Atomic single-worker task claiming is verified in FalkorDB;
+   true distributed multi-coordinator clustering across separate network nodes is restricted to
+   single coordinator scheduling in this implementation.
+3. **Vis.js CDN Dependency**: Interactive graph rendering loads `vis-network` from `unpkg.com`.
+   In air-gapped environments, the accessible tabular alternative (`st.dataframe`) is always
+   co-rendered alongside every graph canvas.

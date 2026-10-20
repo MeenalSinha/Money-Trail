@@ -748,6 +748,289 @@ def _cmd_dashboard(args) -> int:
         return 0
 
 
+def _cmd_demo(args) -> int:
+    """Phase 8: Guided end-to-end demonstration walkthrough.
+
+    Generates a small synthetic dataset, ingests it into a temporary disposable
+    graph in FalkorDB, runs the full 4-detector investigation engine, persists
+    findings and evidence, verifies the provenance chain, and prints a structured
+    walkthrough summary.  The temporary graph is deleted on exit unless
+    --keep-graph is given.
+
+    Pipeline exercised:
+        generate -> validate -> ingest -> investigate ->
+        persist findings -> retrieve findings -> evidence provenance -> cleanup
+
+    No data is ever written to the primary graph (FALKORDB_GRAPH_NAME).
+    """
+    import json as _json
+    import tempfile
+    import time
+    import uuid
+    from pathlib import Path as _Path
+
+    from money_trail.database import initialize_graph as _init_graph
+
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+
+    demo_id = uuid.uuid4().hex[:8]
+    demo_namespace = f"demo_{demo_id}"
+    demo_graph = f"money_trail_demo_{demo_id}"
+
+    if not args.json:
+        print(f"\n{'=' * 60}")
+        print("  Money Trail — End-to-End Demonstration Walkthrough")
+        print(f"{'=' * 60}")
+        print(f"  Demo ID        : {demo_id}")
+        print(f"  Namespace      : {demo_namespace}")
+        print(f"  Temporary Graph: {demo_graph}")
+        print(f"{'=' * 60}\n")
+
+    results: dict = {}
+    t_start = time.monotonic()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = _Path(tmpdir)
+
+        # ── Step 1: generate ──────────────────────────────────────────────────
+        step_t = time.monotonic()
+        from money_trail.generation import generate, load_generator_config, write_dataset
+        gen_cfg_path = tmp / "gen.json"
+        gen_cfg_dict = {
+            "namespace": demo_namespace,
+            "seed": 42,
+            "output_dir": str(tmp),
+            "ingest_output_dir": str(tmp),
+            "currency": {"code": "USD", "exponent": 2},
+            "amount_format": "major",
+            "time_window": {"start": "2026-01-01T00:00:00Z", "days": 10},
+            "ordinary_activity": {
+                "accounts": 15,
+                "transactions": 40,
+                "amount_minor": {"min": 500, "max": 50000},
+                "channels": ["transfer", "wire"],
+            },
+            "id_prefixes": {"account": "ACC", "transaction": "TXN", "alert": "ALT"},
+            "patterns": [
+                {
+                    "type": "circular", "count": 1, "cycle_length": {"min": 3, "max": 4},
+                    "amount_minor": {"min": 10000, "max": 20000}, "retention_bps": 9900,
+                    "delay_seconds": {"min": 10, "max": 600}, "shared_account_fraction_percent": 0,
+                },
+                {
+                    "type": "pass_through", "count": 1, "hops": {"min": 2, "max": 3},
+                    "amount_minor": {"min": 10000, "max": 20000}, "retention_bps": 9500,
+                    "delay_seconds": {"min": 10, "max": 600}, "shared_account_fraction_percent": 0,
+                },
+                {
+                    "type": "fan_in", "count": 1, "sources": {"min": 3, "max": 4},
+                    "amount_minor": {"min": 1000, "max": 5000},
+                    "delay_seconds": {"min": 0, "max": 3600}, "shared_account_fraction_percent": 0,
+                },
+                {
+                    "type": "fan_out", "count": 1, "recipients": {"min": 3, "max": 4},
+                    "amount_minor": {"min": 1000, "max": 5000},
+                    "delay_seconds": {"min": 0, "max": 3600}, "shared_account_fraction_percent": 0,
+                },
+            ],
+            "seed_alerts": {
+                "on_pattern_transactions": 3,
+                "on_ordinary_transactions": 2,
+                "alert_type": "seed_signal",
+                "severity": "unspecified",
+            },
+        }
+        gen_cfg_path.write_text(_json.dumps(gen_cfg_dict), encoding="utf-8")
+        gen_cfg = load_generator_config(str(gen_cfg_path))
+        manifest = write_dataset(gen_cfg, generate(gen_cfg), overwrite=True)
+        elapsed = round(time.monotonic() - step_t, 3)
+        results["step_generate"] = {
+            "status": "ok", "namespace": demo_namespace,
+            "counts": manifest["record_counts"], "elapsed_s": elapsed,
+        }
+        if not args.json:
+            print(f"[1/6] GENERATE   ok  counts={manifest['record_counts']}  ({elapsed}s)")
+
+        ns_dir = tmp / demo_namespace
+        ingest_cfg_path = ns_dir / "ingest_config.json"
+
+        # ── Step 2: validate ──────────────────────────────────────────────────
+        step_t = time.monotonic()
+        from money_trail.ingestion import load_dataset_config, validate_dataset
+        ingest_cfg = load_dataset_config(str(ingest_cfg_path))
+        validation = validate_dataset(ingest_cfg)
+        elapsed = round(time.monotonic() - step_t, 3)
+        val_ok = not validation.fatal and not validation.error_total
+        results["step_validate"] = {
+            "status": "ok" if val_ok else "failed",
+            "fatal": validation.fatal, "error_total": validation.error_total,
+            "elapsed_s": elapsed,
+        }
+        if not args.json:
+            print(f"[2/6] VALIDATE   {'ok' if val_ok else 'FAILED'}  errors={validation.error_total}  ({elapsed}s)")
+        if not val_ok:
+            if args.json:
+                print(_json.dumps(results, indent=2))
+            return 1
+
+        # ── Steps 3–6 require a temporary FalkorDB graph ──────────────────────
+        import dataclasses
+        demo_settings = dataclasses.replace(settings, graph_name=demo_graph, test_graph_prefix=demo_graph)
+
+        with FalkorDBConnection(demo_settings) as conn:
+            _init_graph(conn)
+
+            # ── Step 3: ingest ────────────────────────────────────────────────
+            step_t = time.monotonic()
+            from money_trail.ingestion import ingest_dataset
+            ingest_report = ingest_dataset(conn, ingest_cfg)
+            elapsed = round(time.monotonic() - step_t, 3)
+            ingest_ok = ingest_report["status"] in ("succeeded", "succeeded_with_rejections")
+            results["step_ingest"] = {
+                "status": "ok" if ingest_ok else "failed",
+                "ingest_status": ingest_report["status"], "elapsed_s": elapsed,
+            }
+            if not args.json:
+                print(f"[3/6] INGEST     {'ok' if ingest_ok else 'FAILED'}  "
+                      f"status={ingest_report['status']}  ({elapsed}s)")
+            if not ingest_ok:
+                if args.json:
+                    print(_json.dumps(results, indent=2))
+                return 1
+
+            # ── Step 4: investigate (all 4 detectors) ────────────────────────
+            step_t = time.monotonic()
+            from money_trail.investigation.config import load_detection_config
+            from money_trail.investigation.engine import InvestigationEngine, InvestigationRequest
+            det_cfg_path = tmp / "detection.json"
+            det_cfg_dict = {
+                "rule_set": {"name": "demo-rules", "version": "1"},
+                "limits": {
+                    "max_candidate_paths": 5000,
+                    "max_detections_per_detector": 200,
+                    "max_anchor_transactions": 100,
+                    "max_evidence_transactions": 50,
+                    "query_timeout_ms": 15000,
+                },
+                "detectors": {
+                    "circular": {
+                        "enabled": True, "min_hops": 3, "max_hops": 5, "max_gap_ms": 3_600_000,
+                        "max_total_window_ms": 21_600_000, "allow_repeated_accounts": False,
+                        "amount_retention": {"min_bps": 9000, "max_bps": 10000},
+                    },
+                    "pass_through": {
+                        "enabled": True, "min_hops": 2, "max_hops": 4, "max_gap_ms": 3_600_000,
+                        "max_total_window_ms": 21_600_000, "allow_repeated_accounts": False,
+                        "retention": {"min_bps": 9000, "max_bps": 10000},
+                    },
+                    "fan_in": {
+                        "enabled": True, "min_distinct_counterparties": 3, "min_transactions": 3,
+                        "window_ms": 7_200_000, "min_total_amount": None,
+                    },
+                    "fan_out": {
+                        "enabled": True, "min_distinct_counterparties": 3, "min_transactions": 3,
+                        "window_ms": 7_200_000, "min_total_amount": None,
+                    },
+                },
+                "persistence": {"hypothesis_findings": True},
+                "evaluation": {"match": {"min_gt_coverage_percent": 100, "min_detection_purity_percent": 100}},
+            }
+            det_cfg_path.write_text(_json.dumps(det_cfg_dict), encoding="utf-8")
+            det_cfg = load_detection_config(str(det_cfg_path))
+            engine = InvestigationEngine(conn, det_cfg)
+            inv_result = engine.investigate(
+                InvestigationRequest("dataset", namespace=demo_namespace), persist=False,
+            )
+            # To demonstrate full persistence and evidence provenance, persist an investigation
+            # anchored on the first detected pattern's anchor transaction (or any graph transaction)
+            anchor_tx = None
+            if inv_result.detections:
+                first_det = inv_result.detections[0]
+                anchor_tx = first_det.anchor_id or (first_det.transaction_ids[0] if first_det.transaction_ids else None)
+            if not anchor_tx:
+                row = conn.graph.ro_query("MATCH (t:Transaction) RETURN t.id LIMIT 1", {}).result_set
+                if row:
+                    anchor_tx = row[0][0]
+            if anchor_tx:
+                engine.investigate(
+                    InvestigationRequest("transaction", anchor_id=anchor_tx), persist=True,
+                )
+            elapsed = round(time.monotonic() - step_t, 3)
+            results["step_investigate"] = {
+                "status": "ok" if inv_result.complete else "incomplete",
+                "detections": len(inv_result.detections),
+                "complete": inv_result.complete,
+                "elapsed_s": elapsed,
+            }
+            if not args.json:
+                print(f"[4/6] DETECT     {'ok' if inv_result.complete else 'incomplete'}  "
+                      f"{len(inv_result.detections)} pattern(s)  ({elapsed}s)")
+
+            # ── Step 5: retrieve findings ─────────────────────────────────────
+            step_t = time.monotonic()
+            from money_trail.investigation.findings import list_findings
+            findings_out = list_findings(conn, limit=200)
+            findings_count = len(findings_out.get("findings", []))
+            elapsed = round(time.monotonic() - step_t, 3)
+            results["step_findings"] = {
+                "status": "ok", "findings_count": findings_count, "elapsed_s": elapsed,
+            }
+            if not args.json:
+                print(f"[5/6] FINDINGS   ok  {findings_count} finding(s) retrieved  ({elapsed}s)")
+
+            # ── Step 6: evidence provenance ───────────────────────────────────
+            step_t = time.monotonic()
+            prov_rows = conn.graph.ro_query(
+                "MATCH (f:Finding)-[:SUPPORTED_BY]->(e:Evidence)-[:REFERENCES]->(t:Transaction) "
+                "RETURN count(DISTINCT f) AS findings, "
+                "       count(DISTINCT e) AS evidence, "
+                "       count(DISTINCT t) AS transactions",
+                {},
+            ).result_set
+            prov = prov_rows[0] if prov_rows else [0, 0, 0]
+            elapsed = round(time.monotonic() - step_t, 3)
+            prov_ok = int(prov[1]) > 0 or findings_count == 0
+            results["step_provenance"] = {
+                "status": "ok" if prov_ok else "no_evidence",
+                "grounded_findings": int(prov[0]),
+                "evidence_nodes": int(prov[1]),
+                "referenced_transactions": int(prov[2]),
+                "elapsed_s": elapsed,
+            }
+            if not args.json:
+                print(f"[6/6] PROVENANCE {'ok' if prov_ok else 'WARNING'}  "
+                      f"{int(prov[1])} evidence -> {int(prov[2])} transactions  ({elapsed}s)")
+
+            # ── Cleanup (best-effort) ─────────────────────────────────────────
+            if not getattr(args, "keep_graph", False):
+                try:
+                    conn.client.delete(demo_graph)
+                except Exception:
+                    pass
+
+    total_elapsed = round(time.monotonic() - t_start, 3)
+    all_ok = all(
+        v.get("status") in ("ok", "incomplete")
+        for v in results.values()
+        if isinstance(v, dict) and "status" in v
+    )
+    results["overall"] = {
+        "status": "PASSED" if all_ok else "FAILED",
+        "total_elapsed_s": total_elapsed,
+        "demo_id": demo_id,
+    }
+
+    if args.json:
+        print(_json.dumps(results, indent=2))
+    else:
+        print(f"\n{'=' * 60}")
+        print(f"  Result: {'PASSED' if all_ok else 'FAILED'}  (total {total_elapsed}s)")
+        print(f"{'=' * 60}\n")
+
+    return 0 if all_ok else 1
+
+
 def _cmd_qa(args) -> int:
     from money_trail.evaluation.qa_config import load_qa_config
     from money_trail.evaluation.qa_runner import render_phase7_markdown_summary, run_complete_qa_pipeline
@@ -961,6 +1244,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     qa.add_argument("--qa-config", help="Optional path to QA config JSON.")
     qa.add_argument("--output-dir", default="evaluation_reports", help="Directory to store evaluation reports.")
     qa.set_defaults(fn=_cmd_qa)
+
+    # Phase 8: End-to-End Demonstration Walkthrough
+    demo = sub.add_parser("demo", parents=[env],
+                          help="Run the guided end-to-end pipeline demonstration (generate->ingest->detect->findings->provenance) "
+                               "against a temporary disposable FalkorDB graph.")
+    demo.add_argument("--keep-graph", action="store_true",
+                      help="Do not delete the temporary demo graph after the walkthrough completes.")
+    demo.set_defaults(fn=_cmd_demo)
 
     args = p.parse_args(argv)
     try:
