@@ -12,3 +12,4 @@ data/
 generated-datasets/
 ingest-output/
 .dev-server/
+evaluation_reports/work/

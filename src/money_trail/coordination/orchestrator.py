@@ -67,6 +67,11 @@ class MultiAgentOrchestrator:
             session_id=session_id,
             metadata={"anchor_id": anchor_id, "anchor_type": anchor_type},
         )
+        if anchor_type == "transaction":
+            try:
+                self.coord_store._store.link("STARTED_FROM", investigation_id, anchor_id)
+            except Exception as exc:
+                log.debug("Could not link STARTED_FROM %s -> %s: %s", investigation_id, anchor_id, exc)
 
         # 2. Retrieve existing memory context from FalkorDB before planning
         prior_memories = self.memory_store.query_memories(

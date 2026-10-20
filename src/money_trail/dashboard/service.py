@@ -427,6 +427,8 @@ class DashboardService:
         if dataset:
             where.append("t.dataset = $ds")
             params["ds"] = dataset
+        if query and "\x00" in query:
+            return []
         if query and query.strip():
             where.append("t.transaction_id CONTAINS $q")
             params["q"] = query.strip()

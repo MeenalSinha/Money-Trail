@@ -748,6 +748,24 @@ def _cmd_dashboard(args) -> int:
         return 0
 
 
+def _cmd_qa(args) -> int:
+    from money_trail.evaluation.qa_config import load_qa_config
+    from money_trail.evaluation.qa_runner import render_phase7_markdown_summary, run_complete_qa_pipeline
+    settings = load_settings(_resolve_env_file(args.env_file))
+    configure_logging(settings.log_level)
+    qa_cfg = load_qa_config(args.qa_config) if getattr(args, "qa_config", None) else None
+    out_dir = Path(args.output_dir) if getattr(args, "output_dir", None) else None
+    root_dir = Path(__file__).resolve().parent.parent.parent
+    with FalkorDBConnection(settings) as conn:
+        report = run_complete_qa_pipeline(conn, root_dir=root_dir, qa_cfg=qa_cfg, output_dir=out_dir)
+    if args.json:
+        print(json.dumps(report, indent=2, default=str))
+    else:
+        print(render_phase7_markdown_summary(report))
+    return 0 if report["overall_status"] == "PASSED" else 1
+
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="money-trail", description="Money Trail data and investigation commands.")
     sub = p.add_subparsers(dest="command", required=True)
@@ -937,6 +955,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     dash.add_argument("--host", default="localhost", help="Host address to bind.")
     dash.add_argument("--headless", action="store_true", help="Run in headless mode (no browser popup).")
     dash.set_defaults(fn=_cmd_dashboard)
+
+    # Phase 7: Comprehensive Evaluation, Reliability, Benchmarks, and Security
+    qa = sub.add_parser("qa", parents=[env], help="Run comprehensive Phase 7 evaluation, reliability, benchmark, and security suite.")
+    qa.add_argument("--qa-config", help="Optional path to QA config JSON.")
+    qa.add_argument("--output-dir", default="evaluation_reports", help="Directory to store evaluation reports.")
+    qa.set_defaults(fn=_cmd_qa)
 
     args = p.parse_args(argv)
     try:

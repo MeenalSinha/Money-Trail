@@ -1,0 +1,1403 @@
+{
+  "report_id": "qa_report_1792490751",
+  "timestamp": "2026-10-20 10:05:51 UTC",
+  "qa_config_version": "7.0.0",
+  "overall_status": "PASSED",
+  "critical_failures": [],
+  "duration_seconds": 12.65,
+  "database_health": {
+    "healthy": true,
+    "status": "ok",
+    "schema_ready": true,
+    "active_version": 2
+  },
+  "detector_evaluation": {
+    "execution_timestamp": "2026-10-20T10:05:51Z",
+    "qa_config_version": "7.0.0",
+    "dev_evaluation": {
+      "namespace": "qa-dev-ns",
+      "rule_fingerprint": "a6c8bbf3d2596a9f",
+      "detection": {
+        "status": "patterns_detected",
+        "complete": true,
+        "duration_ms": 99,
+        "detectors": {
+          "circular": {
+            "rule_version": "circular:demo-rules@1+089124bfebeb",
+            "detections": 1,
+            "truncated": false,
+            "warnings": [],
+            "queries": 3,
+            "rows_read": 1,
+            "query_seconds": 0.0129
+          },
+          "pass_through": {
+            "rule_version": "pass_through:demo-rules@1+5f5477c25d5c",
+            "detections": 3,
+            "truncated": false,
+            "warnings": [
+              "2 candidate chain(s) skipped: retention failed"
+            ],
+            "queries": 3,
+            "rows_read": 12,
+            "query_seconds": 0.0161
+          },
+          "fan_in": {
+            "rule_version": "fan_in:demo-rules@1+47b806f43e9a",
+            "detections": 1,
+            "truncated": false,
+            "warnings": [],
+            "queries": 8,
+            "rows_read": 48,
+            "query_seconds": 0.0257
+          },
+          "fan_out": {
+            "rule_version": "fan_out:demo-rules@1+47b806f43e9a",
+            "detections": 1,
+            "truncated": false,
+            "warnings": [],
+            "queries": 9,
+            "rows_read": 60,
+            "query_seconds": 0.0268
+          }
+        },
+        "evidence_failures": [],
+        "total_detections": 6
+      },
+      "evaluation": {
+        "per_type": {
+          "circular": {
+            "evaluated": true,
+            "ground_truth_instances": 1,
+            "excluded_instances": 0,
+            "detected_instances": 1,
+            "true_positives": 1,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "precision": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "f1": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "5/5"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "5/5"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [],
+            "false_negative_examples": []
+          },
+          "pass_through": {
+            "evaluated": true,
+            "ground_truth_instances": 1,
+            "excluded_instances": 0,
+            "detected_instances": 3,
+            "true_positives": 1,
+            "false_positives": 2,
+            "false_negatives": 0,
+            "precision": {
+              "value": 0.333333,
+              "fraction": "1/3"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "f1": {
+              "value": 0.5,
+              "fraction": "1/2"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "3/3"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [
+              {
+                "detection_id": "det:b2cb28586059991cb22e0fe00e32d2f0",
+                "transactions": 4,
+                "accounts": 5,
+                "classification": "overlaps_instance_of_other_type",
+                "shared_with_same_type": 0
+              },
+              {
+                "detection_id": "det:b3e8b99a419f3f74291532f3b67eb30f",
+                "transactions": 4,
+                "accounts": 5,
+                "classification": "overlaps_instance_of_other_type",
+                "shared_with_same_type": 0
+              }
+            ],
+            "false_negative_examples": []
+          },
+          "fan_in": {
+            "evaluated": true,
+            "ground_truth_instances": 1,
+            "excluded_instances": 0,
+            "detected_instances": 1,
+            "true_positives": 1,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "precision": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "f1": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "9/9"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "8/8"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [],
+            "false_negative_examples": []
+          },
+          "fan_out": {
+            "evaluated": true,
+            "ground_truth_instances": 1,
+            "excluded_instances": 0,
+            "detected_instances": 1,
+            "true_positives": 1,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "precision": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "f1": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "8/8"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "7/7"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [],
+            "false_negative_examples": []
+          }
+        },
+        "overall_micro": {
+          "true_positives": 4,
+          "false_positives": 2,
+          "false_negatives": 0,
+          "precision": {
+            "value": 0.666667,
+            "fraction": "4/6"
+          },
+          "recall": {
+            "value": 1.0,
+            "fraction": "4/4"
+          },
+          "f1": {
+            "value": 0.8,
+            "fraction": "4/5"
+          }
+        },
+        "matching": {
+          "min_gt_coverage_percent": 100,
+          "min_detection_purity_percent": 100,
+          "assignment": "greedy one-to-one, best overlap first, deterministic tie-breaks"
+        },
+        "truncated_searches": 0
+      },
+      "limitations": [
+        "Synthetic data with deliberately constructed patterns: results do not measure real-world accuracy.",
+        "Random ordinary activity can resemble a pattern; such detections are counted as false positives.",
+        "Detector thresholds are configuration; metrics are specific to the configuration used."
+      ]
+    },
+    "eval_evaluation": {
+      "namespace": "qa-eval-ns",
+      "detection_wall_ms": 309,
+      "detections_count": 14,
+      "status": "patterns_detected",
+      "complete": true,
+      "evaluation": {
+        "per_type": {
+          "circular": {
+            "evaluated": true,
+            "ground_truth_instances": 2,
+            "excluded_instances": 0,
+            "detected_instances": 2,
+            "true_positives": 2,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "precision": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "f1": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "8/8"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "8/8"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [],
+            "false_negative_examples": []
+          },
+          "pass_through": {
+            "evaluated": true,
+            "ground_truth_instances": 2,
+            "excluded_instances": 0,
+            "detected_instances": 8,
+            "true_positives": 2,
+            "false_positives": 6,
+            "false_negatives": 0,
+            "precision": {
+              "value": 0.25,
+              "fraction": "2/8"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "f1": {
+              "value": 0.4,
+              "fraction": "2/5"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "9/9"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "7/7"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [
+              {
+                "detection_id": "det:067069ef22aa8180c28e42e669c0cbc0",
+                "transactions": 2,
+                "accounts": 3,
+                "classification": "no_overlap_with_any_labelled_instance",
+                "shared_with_same_type": 0
+              },
+              {
+                "detection_id": "det:1128139f5812282df631edf187386757",
+                "transactions": 3,
+                "accounts": 4,
+                "classification": "overlaps_instance_of_other_type",
+                "shared_with_same_type": 0
+              },
+              {
+                "detection_id": "det:41e2a9070a4c9bba28281a3971084ac7",
+                "transactions": 2,
+                "accounts": 3,
+                "classification": "no_overlap_with_any_labelled_instance",
+                "shared_with_same_type": 0
+              },
+              {
+                "detection_id": "det:d6acd89033a3e095dbda3cb175b96054",
+                "transactions": 3,
+                "accounts": 4,
+                "classification": "overlaps_instance_of_other_type",
+                "shared_with_same_type": 0
+              },
+              {
+                "detection_id": "det:e8ad2b2f0ee700ed08f5d378eddb8a4a",
+                "transactions": 3,
+                "accounts": 4,
+                "classification": "overlaps_instance_of_other_type",
+                "shared_with_same_type": 0
+              },
+              {
+                "detection_id": "det:f1ad73163b5a7791144ebade736ab6e3",
+                "transactions": 3,
+                "accounts": 4,
+                "classification": "overlaps_instance_of_other_type",
+                "shared_with_same_type": 0
+              }
+            ],
+            "false_negative_examples": []
+          },
+          "fan_in": {
+            "evaluated": true,
+            "ground_truth_instances": 2,
+            "excluded_instances": 0,
+            "detected_instances": 2,
+            "true_positives": 2,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "precision": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "f1": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "14/14"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "12/12"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [],
+            "false_negative_examples": []
+          },
+          "fan_out": {
+            "evaluated": true,
+            "ground_truth_instances": 2,
+            "excluded_instances": 0,
+            "detected_instances": 2,
+            "true_positives": 2,
+            "false_positives": 0,
+            "false_negatives": 0,
+            "precision": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "recall": {
+              "value": 1.0,
+              "fraction": "2/2"
+            },
+            "f1": {
+              "value": 1.0,
+              "fraction": "1/1"
+            },
+            "account_coverage": {
+              "value": 1.0,
+              "fraction": "15/15"
+            },
+            "transaction_coverage": {
+              "value": 1.0,
+              "fraction": "13/13"
+            },
+            "ambiguous_detections_resolved": 0,
+            "search_truncated": false,
+            "false_positive_examples": [],
+            "false_negative_examples": []
+          }
+        },
+        "overall_micro": {
+          "true_positives": 8,
+          "false_positives": 6,
+          "false_negatives": 0,
+          "precision": {
+            "value": 0.571429,
+            "fraction": "8/14"
+          },
+          "recall": {
+            "value": 1.0,
+            "fraction": "8/8"
+          },
+          "f1": {
+            "value": 0.727273,
+            "fraction": "8/11"
+          }
+        },
+        "matching": {
+          "min_gt_coverage_percent": 100,
+          "min_detection_purity_percent": 100,
+          "assignment": "greedy one-to-one, best overlap first, deterministic tie-breaks"
+        }
+      },
+      "detector_reports": {
+        "circular": {
+          "rule_version": "circular:demo-rules@1+089124bfebeb",
+          "detections": 2,
+          "truncated": false,
+          "warnings": [],
+          "queries": 3,
+          "rows_read": 2,
+          "query_seconds": 0.0411
+        },
+        "pass_through": {
+          "rule_version": "pass_through:demo-rules@1+5f5477c25d5c",
+          "detections": 8,
+          "truncated": false,
+          "warnings": [
+            "10 candidate chain(s) skipped: retention failed",
+            "2 candidate chain(s) skipped: repeated accounts"
+          ],
+          "queries": 3,
+          "rows_read": 33,
+          "query_seconds": 0.0332
+        },
+        "fan_in": {
+          "rule_version": "fan_in:demo-rules@1+47b806f43e9a",
+          "detections": 2,
+          "truncated": false,
+          "warnings": [],
+          "queries": 44,
+          "rows_read": 335,
+          "query_seconds": 0.0981
+        },
+        "fan_out": {
+          "rule_version": "fan_out:demo-rules@1+47b806f43e9a",
+          "detections": 2,
+          "truncated": false,
+          "warnings": [],
+          "queries": 44,
+          "rows_read": 326,
+          "query_seconds": 0.1127
+        }
+      }
+    },
+    "error_analysis": {
+      "circular": {
+        "total_ground_truth": 2,
+        "total_detected": 2,
+        "true_positives": 2,
+        "false_positives_count": 0,
+        "false_negatives_count": 0,
+        "false_positives": [],
+        "false_negatives": []
+      },
+      "pass_through": {
+        "total_ground_truth": 2,
+        "total_detected": 8,
+        "true_positives": 2,
+        "false_positives_count": 6,
+        "false_negatives_count": 0,
+        "false_positives": [
+          {
+            "detection_id": "det:067069ef22aa8180c28e42e669c0cbc0",
+            "pattern_type": "pass_through",
+            "transactions_count": 2,
+            "accounts_count": 3,
+            "sample_transactions": [
+              "qa-eval-ns:TXN000000214",
+              "qa-eval-ns:TXN000000215"
+            ],
+            "sample_accounts": [
+              "qa-eval-ns:ACC00000033",
+              "qa-eval-ns:ACC00000086",
+              "qa-eval-ns:ACC00000105"
+            ],
+            "overlap_with_known_patterns": {},
+            "root_cause": "spurious_ordinary_network_structural_match"
+          },
+          {
+            "detection_id": "det:1128139f5812282df631edf187386757",
+            "pattern_type": "pass_through",
+            "transactions_count": 3,
+            "accounts_count": 4,
+            "sample_transactions": [
+              "qa-eval-ns:TXN000000056",
+              "qa-eval-ns:TXN000000058",
+              "qa-eval-ns:TXN000000059"
+            ],
+            "sample_accounts": [
+              "qa-eval-ns:ACC00000015",
+              "qa-eval-ns:ACC00000021",
+              "qa-eval-ns:ACC00000022",
+              "qa-eval-ns:ACC00000042"
+            ],
+            "overlap_with_known_patterns": {},
+            "root_cause": "spurious_ordinary_network_structural_match"
+          },
+          {
+            "detection_id": "det:41e2a9070a4c9bba28281a3971084ac7",
+            "pattern_type": "pass_through",
+            "transactions_count": 2,
+            "accounts_count": 3,
+            "sample_transactions": [
+              "qa-eval-ns:TXN000000210",
+              "qa-eval-ns:TXN000000211"
+            ],
+            "sample_accounts": [
+              "qa-eval-ns:ACC00000008",
+              "qa-eval-ns:ACC00000067",
+              "qa-eval-ns:ACC00000086"
+            ],
+            "overlap_with_known_patterns": {},
+            "root_cause": "spurious_ordinary_network_structural_match"
+          },
+          {
+            "detection_id": "det:d6acd89033a3e095dbda3cb175b96054",
+            "pattern_type": "pass_through",
+            "transactions_count": 3,
+            "accounts_count": 4,
+            "sample_transactions": [
+              "qa-eval-ns:TXN000000055",
+              "qa-eval-ns:TXN000000056",
+              "qa-eval-ns:TXN000000058"
+            ],
+            "sample_accounts": [
+              "qa-eval-ns:ACC00000015",
+              "qa-eval-ns:ACC00000021",
+              "qa-eval-ns:ACC00000022",
+              "qa-eval-ns:ACC00000042"
+            ],
+            "overlap_with_known_patterns": {},
+            "root_cause": "spurious_ordinary_network_structural_match"
+          },
+          {
+            "detection_id": "det:e8ad2b2f0ee700ed08f5d378eddb8a4a",
+            "pattern_type": "pass_through",
+            "transactions_count": 3,
+            "accounts_count": 4,
+            "sample_transactions": [
+              "qa-eval-ns:TXN000000376",
+              "qa-eval-ns:TXN000000377",
+              "qa-eval-ns:TXN000000378"
+            ],
+            "sample_accounts": [
+              "qa-eval-ns:ACC00000023",
+              "qa-eval-ns:ACC00000046",
+              "qa-eval-ns:ACC00000106",
+              "qa-eval-ns:ACC00000122"
+            ],
+            "overlap_with_known_patterns": {},
+            "root_cause": "spurious_ordinary_network_structural_match"
+          },
+          {
+            "detection_id": "det:f1ad73163b5a7791144ebade736ab6e3",
+            "pattern_type": "pass_through",
+            "transactions_count": 3,
+            "accounts_count": 4,
+            "sample_transactions": [
+              "qa-eval-ns:TXN000000377",
+              "qa-eval-ns:TXN000000378",
+              "qa-eval-ns:TXN000000379"
+            ],
+            "sample_accounts": [
+              "qa-eval-ns:ACC00000023",
+              "qa-eval-ns:ACC00000046",
+              "qa-eval-ns:ACC00000106",
+              "qa-eval-ns:ACC00000122"
+            ],
+            "overlap_with_known_patterns": {},
+            "root_cause": "spurious_ordinary_network_structural_match"
+          }
+        ],
+        "false_negatives": []
+      },
+      "fan_in": {
+        "total_ground_truth": 2,
+        "total_detected": 2,
+        "true_positives": 2,
+        "false_positives_count": 0,
+        "false_negatives_count": 0,
+        "false_positives": [],
+        "false_negatives": []
+      },
+      "fan_out": {
+        "total_ground_truth": 2,
+        "total_detected": 2,
+        "true_positives": 2,
+        "false_positives_count": 0,
+        "false_negatives_count": 0,
+        "false_positives": [],
+        "false_negatives": []
+      }
+    },
+    "scaling_benchmark": [
+      {
+        "namespace": "qa-scale-100",
+        "transactions": 100,
+        "accounts": 25,
+        "patterns_per_type": 1,
+        "total_detections": 6,
+        "duration_ms": 85,
+        "status": "patterns_detected",
+        "complete": true,
+        "detector_reports": {
+          "circular": {
+            "rule_version": "circular:demo-rules@1+089124bfebeb",
+            "detections": 1,
+            "truncated": false,
+            "warnings": [],
+            "queries": 3,
+            "rows_read": 1,
+            "query_seconds": 0.0127
+          },
+          "pass_through": {
+            "rule_version": "pass_through:demo-rules@1+5f5477c25d5c",
+            "detections": 3,
+            "truncated": false,
+            "warnings": [
+              "1 candidate chain(s) skipped: retention failed"
+            ],
+            "queries": 3,
+            "rows_read": 16,
+            "query_seconds": 0.0118
+          },
+          "fan_in": {
+            "rule_version": "fan_in:demo-rules@1+47b806f43e9a",
+            "detections": 1,
+            "truncated": false,
+            "warnings": [],
+            "queries": 9,
+            "rows_read": 57,
+            "query_seconds": 0.0234
+          },
+          "fan_out": {
+            "rule_version": "fan_out:demo-rules@1+47b806f43e9a",
+            "detections": 1,
+            "truncated": false,
+            "warnings": [],
+            "queries": 9,
+            "rows_read": 59,
+            "query_seconds": 0.0276
+          }
+        }
+      },
+      {
+        "namespace": "qa-scale-500",
+        "transactions": 500,
+        "accounts": 100,
+        "patterns_per_type": 2,
+        "total_detections": 12,
+        "duration_ms": 301,
+        "status": "patterns_detected",
+        "complete": true,
+        "detector_reports": {
+          "circular": {
+            "rule_version": "circular:demo-rules@1+089124bfebeb",
+            "detections": 2,
+            "truncated": false,
+            "warnings": [],
+            "queries": 3,
+            "rows_read": 2,
+            "query_seconds": 0.0222
+          },
+          "pass_through": {
+            "rule_version": "pass_through:demo-rules@1+5f5477c25d5c",
+            "detections": 6,
+            "truncated": false,
+            "warnings": [
+              "6 candidate chain(s) skipped: retention failed",
+              "1 candidate chain(s) skipped: repeated accounts"
+            ],
+            "queries": 3,
+            "rows_read": 30,
+            "query_seconds": 0.0173
+          },
+          "fan_in": {
+            "rule_version": "fan_in:demo-rules@1+47b806f43e9a",
+            "detections": 2,
+            "truncated": false,
+            "warnings": [],
+            "queries": 57,
+            "rows_read": 439,
+            "query_seconds": 0.1053
+          },
+          "fan_out": {
+            "rule_version": "fan_out:demo-rules@1+47b806f43e9a",
+            "detections": 2,
+            "truncated": false,
+            "warnings": [],
+            "queries": 55,
+            "rows_read": 424,
+            "query_seconds": 0.126
+          }
+        }
+      },
+      {
+        "namespace": "qa-scale-1200",
+        "transactions": 1200,
+        "accounts": 240,
+        "patterns_per_type": 3,
+        "total_detections": 20,
+        "duration_ms": 849,
+        "status": "patterns_detected",
+        "complete": true,
+        "detector_reports": {
+          "circular": {
+            "rule_version": "circular:demo-rules@1+089124bfebeb",
+            "detections": 3,
+            "truncated": false,
+            "warnings": [],
+            "queries": 3,
+            "rows_read": 3,
+            "query_seconds": 0.0578
+          },
+          "pass_through": {
+            "rule_version": "pass_through:demo-rules@1+5f5477c25d5c",
+            "detections": 10,
+            "truncated": false,
+            "warnings": [
+              "16 candidate chain(s) skipped: retention failed",
+              "2 candidate chain(s) skipped: repeated accounts"
+            ],
+            "queries": 3,
+            "rows_read": 50,
+            "query_seconds": 0.0418
+          },
+          "fan_in": {
+            "rule_version": "fan_in:demo-rules@1+47b806f43e9a",
+            "detections": 4,
+            "truncated": false,
+            "warnings": [],
+            "queries": 139,
+            "rows_read": 1046,
+            "query_seconds": 0.3877
+          },
+          "fan_out": {
+            "rule_version": "fan_out:demo-rules@1+47b806f43e9a",
+            "detections": 3,
+            "truncated": false,
+            "warnings": [],
+            "queries": 140,
+            "rows_read": 1052,
+            "query_seconds": 0.3164
+          }
+        }
+      }
+    ],
+    "dev_gt_path": "C:\\Users\\Meenal Sinha\\Downloads\\money-trail-phase4\\money-trail\\evaluation_reports\\work\\dev\\evaluation_reports\\work\\dev\\gen\\qa-dev-ns\\ground_truth.json"
+  },
+  "agent_evaluation": {
+    "provider_status": {
+      "verified": false,
+      "status": "BLOCKED",
+      "provider": "anthropic",
+      "configured_model": "claude-sonnet-5-5",
+      "reason": "No credential found in environment variable 'ANTHROPIC_API_KEY'. Real model invocation is UNVERIFIED."
+    },
+    "scripted_metrics": {
+      "scenarios": 7,
+      "per_scenario": [
+        {
+          "scenario": "connected-circular",
+          "run_status": "completed",
+          "outcome": "patterns_identified",
+          "tools_executed": [
+            "get_transaction_context",
+            "run_pattern_detector"
+          ],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": true,
+          "expected_pattern_reported": true,
+          "unnecessary_call_seqs": [
+            3
+          ],
+          "wall_ms": 57
+        },
+        {
+          "scenario": "connected-pass_through",
+          "run_status": "completed",
+          "outcome": "no_pattern_identified_under_tested_criteria",
+          "tools_executed": [
+            "get_transaction_context",
+            "run_pattern_detector"
+          ],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": false,
+          "expected_pattern_reported": false,
+          "unnecessary_call_seqs": [
+            3
+          ],
+          "wall_ms": 28
+        },
+        {
+          "scenario": "connected-fan_in",
+          "run_status": "completed",
+          "outcome": "no_pattern_identified_under_tested_criteria",
+          "tools_executed": [
+            "get_transaction_context",
+            "run_pattern_detector"
+          ],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": false,
+          "expected_pattern_reported": false,
+          "unnecessary_call_seqs": [
+            3
+          ],
+          "wall_ms": 22
+        },
+        {
+          "scenario": "connected-fan_out",
+          "run_status": "completed",
+          "outcome": "no_pattern_identified_under_tested_criteria",
+          "tools_executed": [
+            "get_transaction_context",
+            "run_pattern_detector"
+          ],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": false,
+          "expected_pattern_reported": false,
+          "unnecessary_call_seqs": [
+            3
+          ],
+          "wall_ms": 25
+        },
+        {
+          "scenario": "insufficient-evidence",
+          "run_status": "completed",
+          "outcome": "no_pattern_identified_under_tested_criteria",
+          "tools_executed": [
+            "get_transaction_context",
+            "run_pattern_detector"
+          ],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": true,
+          "expected_pattern_reported": true,
+          "unnecessary_call_seqs": [
+            3
+          ],
+          "wall_ms": 33
+        },
+        {
+          "scenario": "missing-transaction",
+          "run_status": "anchor_not_found",
+          "outcome": "not_determined",
+          "tools_executed": [],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": true,
+          "expected_pattern_reported": true,
+          "unnecessary_call_seqs": [],
+          "wall_ms": 2
+        },
+        {
+          "scenario": "unsupported-request",
+          "run_status": "completed",
+          "outcome": "patterns_identified",
+          "tools_executed": [
+            "get_transaction_context",
+            "run_pattern_detector"
+          ],
+          "tool_selection_ok": true,
+          "status_ok": true,
+          "outcome_ok": true,
+          "expected_pattern_reported": true,
+          "unnecessary_call_seqs": [
+            3
+          ],
+          "wall_ms": 58
+        }
+      ],
+      "tool_selection_accuracy": 1.0,
+      "tool_execution_success_rate": 0.5,
+      "model_tool_calls": 12,
+      "investigation_completion_rate": 1.0,
+      "unnecessary_tool_call_rate": 0.5,
+      "evidence_grounding_rate": null,
+      "factual_sentences": 0,
+      "unsupported_claim_rate": 0.0,
+      "model_sentences": 6,
+      "post_filter_unresolved_ids": [],
+      "findings_verified_independently": {
+        "verified": 4,
+        "total": 4
+      },
+      "outcome_matches_expectation": 0.5714,
+      "expected_pattern_reported": 0.5714,
+      "latency_ms": {
+        "run_median": 28,
+        "run_max": 58,
+        "tool_total": 173,
+        "model_total": 0,
+        "tool_mean_by_name": {
+          "get_transaction_context": 7.7,
+          "run_pattern_detector": 21.2
+        }
+      },
+      "provider_usage": {
+        "input_tokens": 630,
+        "output_tokens": 315,
+        "cost": "not computed"
+      }
+    },
+    "failure_scenarios": [
+      {
+        "scenario_id": "01_missing_anchor_transaction",
+        "description": "Missing transaction anchor correctly identified",
+        "passed": true,
+        "run_status": "anchor_not_found",
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "02_valid_tx_no_patterns",
+        "description": "Negative result correctly handled as valid information",
+        "passed": true,
+        "run_status": "completed",
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "03_multiple_detector_findings",
+        "description": "Agent coordinates multiple detector runs and combines findings",
+        "passed": true,
+        "findings_count": 4,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "04_incomplete_graph_results",
+        "description": "Bounded traversal results safely recorded without crash",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "05_missing_supporting_evidence",
+        "description": "Ungrounded / unsupported claims filtered by grounding layer",
+        "passed": true,
+        "sentences_rejected": 1,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "06_invalid_tool_arguments",
+        "description": "Invalid tool arguments rejected by tool schema without crash",
+        "passed": true,
+        "run_status": "completed",
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "07_unknown_tool_name",
+        "description": "Unknown tool invocation caught and rejected safely",
+        "passed": true,
+        "run_status": "completed",
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "08_malformed_model_output",
+        "description": "Empty or malformed model response handled safely",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "09_llm_timeout",
+        "description": "Provider timeout caught and classified as provider_error",
+        "passed": true,
+        "error": "ProviderError: Anthropic API request timed out after 60s",
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "10_provider_rate_limit",
+        "description": "Provider rate limit error reported cleanly without crashing",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "11_provider_auth_failure",
+        "description": "Provider authentication error reported cleanly without exposing secrets",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "12_falkordb_disconnection",
+        "description": "Database disconnection surfaces clean error without unhandled traceback",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "13_investigation_timeout",
+        "description": "Investigation timeout terminates safely and preserves partial findings",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "14_exhausted_tool_budget",
+        "description": "Exhausted tool budget forces submit_investigation_report",
+        "passed": true,
+        "error_handled_safely": true
+      },
+      {
+        "scenario_id": "15_failed_evidence_audit",
+        "description": "Evidence auditor correctly flags ungrounded finding lacking evidence",
+        "passed": true,
+        "audit_reason": "Finding has no supporting evidence relationships in graph.",
+        "error_handled_safely": true
+      }
+    ]
+  },
+  "memory_and_coordination": {
+    "memory": {
+      "passed": true,
+      "checks": {
+        "episodic_persistence": {
+          "passed": true,
+          "memory_id": "mem_4c0bf8c4507cfc574c3b62b7"
+        },
+        "semantic_persistence": {
+          "passed": true,
+          "memory_id": "mem_500309ba97097fd348482cd1"
+        },
+        "provenance_coverage": {
+          "passed": true,
+          "provenance_chain": [
+            "mem_500309ba97097fd348482cd1 -> mem_eval_ev_1 -> mem_eval_ds_alpha:tx_1"
+          ]
+        },
+        "supersession": {
+          "passed": true,
+          "old_status": "superseded",
+          "superseded_by": "mem_ce741747c4bf81cd69b59001"
+        },
+        "contradiction_handling": {
+          "passed": true,
+          "contradictions": [
+            "mem_e86048182e4d648fda1c62cc"
+          ]
+        },
+        "cross_scope_isolation": {
+          "passed": true,
+          "leakage_count": 0,
+          "unintended_retrievals": 0
+        },
+        "duplicate_prevention": {
+          "passed": true,
+          "idempotent": true
+        },
+        "anti_poisoning_guard": {
+          "passed": true,
+          "unsupported_promotion_blocked": true
+        }
+      },
+      "summary": "All persistent memory invariants and isolation boundaries verified."
+    },
+    "coordination": {
+      "passed": true,
+      "checks": {
+        "state_machine_validations": {
+          "passed": true,
+          "valid_transitions_pass": true,
+          "invalid_transitions_blocked": true
+        },
+        "dependency_scheduling": {
+          "passed": true,
+          "initially_blocked": true,
+          "unblocked_on_completion": true
+        },
+        "cycle_detection": {
+          "passed": true,
+          "detected_cycle": [
+            "task_A",
+            "task_B",
+            "task_C",
+            "task_A"
+          ],
+          "cycles_prevented": true
+        },
+        "task_idempotency": {
+          "passed": true,
+          "task_id": "task_1161527ab63c481c5ded"
+        },
+        "handoff_integrity": {
+          "passed": true,
+          "handoff_id": "hnd_70a91aee8da5827885b9"
+        }
+      },
+      "summary": "Multi-agent coordination state machine, dependencies, and handoffs verified."
+    },
+    "interruption_recovery": {
+      "passed": true,
+      "scenarios": [
+        {
+          "point": "1_before_task_execution",
+          "description": "Task created but process halted before claim",
+          "passed": true,
+          "recovered_ready_tasks": [
+            "task_11a67efd8a7fd90f32c4",
+            "task_8ce178dedd81e66df66a",
+            "task_c2853c7972a00756e682",
+            "task_9c22d72251f1dc3ad046"
+          ]
+        },
+        {
+          "point": "2_during_investigation",
+          "description": "Process halted while task was running; safely recovered to ready",
+          "passed": true,
+          "task_status_after_recovery": "ready"
+        },
+        {
+          "point": "3_after_tool_before_task_completion",
+          "description": "Evidence node in graph preserved; task subsequently completed safely",
+          "passed": true
+        },
+        {
+          "point": "4_after_finding_before_report_finalization",
+          "description": "Persisted finding survived restart and remains linked to investigation",
+          "passed": true
+        },
+        {
+          "point": "5_during_handoff",
+          "description": "Initiated handoff survived restart and successfully accepted by auditor",
+          "passed": true
+        },
+        {
+          "point": "6_during_memory_update",
+          "description": "Persisted memory and provenance link intact after simulated restart",
+          "passed": true
+        }
+      ],
+      "summary": "All 6 interruption points safely recovered from graph state."
+    }
+  },
+  "performance_benchmarks": {
+    "environment": {
+      "os": "Windows-10-10.0.26300-SP0",
+      "python_version": "3.11.9",
+      "processor": "Intel64 Family 6 Model 197 Stepping 2, GenuineIntel",
+      "benchmark_timestamp": "2026-10-20T10:05:56Z"
+    },
+    "budgets_defined": {
+      "min_ingest_records_per_sec": 100.0,
+      "max_graph_query_p95_ms": 100.0,
+      "max_detector_runtime_ms": 2000.0,
+      "max_dashboard_service_ms": 250.0,
+      "max_memory_retrieval_ms": 100.0,
+      "max_agent_step_ms": 5000.0
+    },
+    "budget_evaluation": {
+      "graph_query_p95_ok": true,
+      "detector_runtime_ok": true,
+      "dashboard_service_ok": true,
+      "memory_retrieval_ok": false
+    },
+    "all_budgets_passed": false,
+    "results": {
+      "graph_queries": {
+        "transaction_context_ms": {
+          "min": 4.929,
+          "median": 5.689,
+          "p95": 6.661,
+          "p99": 6.661,
+          "max": 6.661,
+          "mean": 5.732,
+          "samples": 9
+        },
+        "trace_network_ms": {
+          "min": 9.165,
+          "median": 12.506,
+          "p95": 19.383,
+          "p99": 19.383,
+          "max": 19.383,
+          "mean": 12.838,
+          "samples": 9
+        },
+        "fetch_node_ms": {
+          "min": 10.265,
+          "median": 12.083,
+          "p95": 20.547,
+          "p99": 20.547,
+          "max": 20.547,
+          "mean": 13.944,
+          "samples": 9
+        }
+      },
+      "detectors": {
+        "total_investigation_ms": {
+          "min": 163.527,
+          "median": 180.672,
+          "p95": 209.579,
+          "p99": 209.579,
+          "max": 209.579,
+          "mean": 184.592,
+          "samples": 3
+        },
+        "per_detector_ms": {
+          "circular": {
+            "min": 17.9,
+            "median": 18.5,
+            "p95": 28.3,
+            "p99": 28.3,
+            "max": 28.3,
+            "mean": 21.567,
+            "samples": 3
+          },
+          "pass_through": {
+            "min": 16.2,
+            "median": 19.5,
+            "p95": 22.2,
+            "p99": 22.2,
+            "max": 22.2,
+            "mean": 19.3,
+            "samples": 3
+          },
+          "fan_in": {
+            "min": 39.6,
+            "median": 43.2,
+            "p95": 61.1,
+            "p99": 61.1,
+            "max": 61.1,
+            "mean": 47.967,
+            "samples": 3
+          },
+          "fan_out": {
+            "min": 51.7,
+            "median": 55.3,
+            "p95": 72.3,
+            "p99": 72.3,
+            "max": 72.3,
+            "mean": 59.767,
+            "samples": 3
+          }
+        },
+        "detections_count": 6,
+        "status": "patterns_detected"
+      },
+      "memory": {
+        "record_memory_latency_ms": {
+          "min": 8.179,
+          "median": 10.104,
+          "p95": 18.919,
+          "p99": 18.919,
+          "max": 18.919,
+          "mean": 10.991,
+          "samples": 12
+        },
+        "query_memories_latency_ms": {
+          "min": 99.829,
+          "median": 415.146,
+          "p95": 822.078,
+          "p99": 822.078,
+          "max": 822.078,
+          "mean": 408.97,
+          "samples": 12
+        },
+        "total_records_created": 12
+      },
+      "dashboard_service": {
+        "get_overview_metrics_ms": {
+          "min": 6.85,
+          "median": 9.517,
+          "p95": 12.922,
+          "p99": 12.922,
+          "max": 12.922,
+          "mean": 9.796,
+          "samples": 9
+        },
+        "search_transactions_ms": {
+          "min": 5.609,
+          "median": 6.423,
+          "p95": 17.95,
+          "p99": 17.95,
+          "max": 17.95,
+          "mean": 7.513,
+          "samples": 9
+        },
+        "get_system_health_ms": {
+          "min": 6.025,
+          "median": 9.5,
+          "p95": 12.987,
+          "p99": 12.987,
+          "max": 12.987,
+          "mean": 8.989,
+          "samples": 9
+        }
+      }
+    }
+  },
+  "security_audit": {
+    "all_security_checks_passed": true,
+    "secrets_audit": {
+      "scanned_files": 221,
+      "clean": true,
+      "findings": []
+    },
+    "cypher_parameterization": {
+      "audited_query_calls": 12,
+      "parameterization_clean": true,
+      "flagged_issues": []
+    },
+    "adversarial_inputs": {
+      "passed": true,
+      "tested_payloads": 5,
+      "details": [
+        {
+          "payload": "TXN_01'; MATCH (n) DETACH DELETE n; //",
+          "search_safe": true,
+          "context_safe": true,
+          "network_safe": true,
+          "all_safe": true
+        },
+        {
+          "payload": "../../etc/passwd",
+          "search_safe": true,
+          "context_safe": true,
+          "network_safe": true,
+          "all_safe": true
+        },
+        {
+          "payload": "<script>alert('xss')</script>",
+          "search_safe": true,
+          "context_safe": true,
+          "network_safe": true,
+          "all_safe": true
+        },
+        {
+          "payload": "ACC_01 OR 1=1",
+          "search_safe": true,
+          "context_safe": true,
+          "network_safe": true,
+          "all_safe": true
+        },
+        {
+          "payload": "NULL\u0000BYTE",
+          "search_safe": true,
+          "context_safe": true,
+          "network_safe": true,
+          "all_safe": true
+        }
+      ]
+    },
+    "ground_truth_isolation": {
+      "isolated": true,
+      "leakage_imports": [],
+      "status": "PASS: Strict runtime and evaluation separation maintained"
+    },
+    "financial_safety_rules": {
+      "accusatory_terms_blocked": true,
+      "neutral_observation_accepted": true,
+      "passed": true,
+      "prototype_disclaimer_rule": "Verified that automated guilt claims and account freezing are excluded."
+    }
+  }
+}
