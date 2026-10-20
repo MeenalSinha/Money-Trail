@@ -92,7 +92,7 @@ FalkorDB is the central context and coordination layer:
 * **Guided Demonstration Workflow** (`money-trail demo`): Self-contained CLI walkthrough that generates a synthetic dataset, ingests it into a temporary disposable graph, runs all 4 detectors, persists findings, verifies evidence provenance, and reports results. Cleans up automatically on exit.
 * **Reproducible Setup Scripts**: `scripts/setup.ps1` (Windows) and `scripts/setup.sh` (Linux/macOS) perform full one-shot environment setup: venv, install, .env, Docker, schema init, and health check.
 * **Release Documentation**: Updated `README.md`, `pyproject.toml` v0.8.0, and `docs/PHASE8_VERIFICATION_REPORT.md`.
-* **Final Test Suite Result**: **700 passed, 1 skipped** (491 unit tests, 209 real FalkorDB integration tests, 0 failures).
+* **Final Test Suite Result**: **701 passed, 1 skipped** (491 unit tests, 210 real FalkorDB integration tests, 0 failures).
 
 Details: `docs/dashboard.md`, `docs/memory.md`, `docs/coordination.md`, `docs/architecture/graph-schema.md`, `docs/agent.md`, `docs/detection.md`, `docs/data-ingestion.md`, `docs/evaluation.md`.  
 Verification: `docs/VERIFICATION_REPORT.md`, `docs/PHASE7_VERIFICATION_REPORT.md`, `docs/PHASE8_VERIFICATION_REPORT.md`.

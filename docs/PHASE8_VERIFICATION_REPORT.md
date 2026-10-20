@@ -18,7 +18,7 @@
 Phase 8 completes the transition of Money Trail into a production-grade, release-ready system for the 2026 FalkorDB Graph Hacks competition. All core subsystems across Phases 1–7—graph schema, data ingestion, topological pattern detection, grounded AI agents, persistent episodic/semantic memory, multi-agent coordination, interactive Streamlit dashboard, and evaluation frameworks—have been fully integrated, audited, and verified against a live FalkorDB instance.
 
 Key milestones verified in Phase 8:
-* **Pre-flight Stability:** Full test suite executed with **700 passed, 1 skipped, 0 failures**.
+* **Pre-flight Stability:** Full test suite executed with **701 passed, 1 skipped, 0 failures** (491 unit, 210 integration).
 * **Automated Demonstration Workflow:** Implemented `money-trail demo`, an end-to-end CLI walkthrough completing generation, validation, ingestion, 4-detector pattern discovery, finding creation, and Cypher evidence provenance in under 0.50 seconds.
 * **Deterministic Deployment:** Created cross-platform one-shot setup scripts (`scripts/setup.ps1` and `scripts/setup.sh`) and updated `Makefile` targets.
 * **Zero Fabrication / Evidence Grounding:** Re-verified that all agent findings strictly link to immutable `Evidence` nodes referencing real `Transaction` records in FalkorDB.
@@ -39,7 +39,7 @@ Before implementing Phase 8 features, the complete Phase 7 codebase was audited 
 | **Pass-Through Precision Audit** | Inspect pass-through detector false positive bounds | Retention bounds (9000-10000 bps) and max gap windows strictly filter unrelated hops | PASS |
 | **Grounding Safeguards** | Ensure agent tools reject ungrounded assertions | Tool definitions enforce graph record IDs; raw hallucinated IDs fail validation | PASS |
 | **Memory & Handoffs** | Verify memory retrieval and agent task transitions | Task state transitions (`PENDING` $\to$ `IN_PROGRESS` $\to$ `COMPLETED`) confirmed atomic | PASS |
-| **Test Suite Health** | Execute full `pytest -q` suite | 700 passed, 1 skipped (Anthropic live key optional) in 105.57s | PASS |
+| **Test Suite Health** | Execute full `pytest -q` suite | 701 passed, 1 skipped (Anthropic live key optional) in 107.93s | PASS |
 
 ### Phase 8 Pre-Flight Repairs Performed
 * During the initial implementation of the `money-trail demo` command, the temporary dataset generator config schema was aligned with `GeneratorConfig` and `parse_generator_config`, replacing informal draft keys (`num_accounts`, `pattern_ratios`) with formal schema objects (`ordinary_activity`, `patterns`, `time_window`, `id_prefixes`).
